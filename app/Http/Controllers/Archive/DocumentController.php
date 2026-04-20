@@ -1,0 +1,219 @@
+<?php
+
+namespace App\Http\Controllers\Archive;
+
+use App\Http\Controllers\Controller;
+use App\Jobs\ProcessDocumentOcr;
+use App\Models\ArchiveDocument;
+use App\Models\AuditLog;
+use App\Models\DocumentFolder;
+use App\Models\DocumentType;
+use App\Models\Sector;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class DocumentController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $this->authorize('viewAny', ArchiveDocument::class);
+        $user = auth()->user();
+
+        $query = ArchiveDocument::with(['folder', 'documentType', 'sector', 'uploader'])
+            // Sector scoping: employees see only their sector
+            ->when(
+                $user->sector_id && !$user->hasAnyRole(['super-admin', 'archive-manager', 'auditor']),
+                fn($q) => $q->where('sector_id', $user->sector_id)
+            )
+            // Hide confidential from others
+            ->when(
+                !$user->hasAnyRole(['super-admin', 'archive-manager']),
+                fn($q) => $q->where(function ($sub) use ($user) {
+                    $sub->where('is_confidential', false)
+                        ->orWhere('uploaded_by', $user->id);
+                })
+            )
+            ->when($request->search, fn($q) => $q->search($request->search))
+            ->when($request->sector_id, fn($q) => $q->where('sector_id', $request->sector_id))
+            ->when($request->folder_id, fn($q) => $q->where('folder_id', $request->folder_id))
+            ->when($request->type_id, fn($q) => $q->where('document_type_id', $request->type_id))
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->expired === 'true', fn($q) => $q->expired())
+            ->when($request->expiring_soon === 'true', fn($q) => $q->expiringSoon())
+            ->when($request->date_from, fn($q) => $q->where('created_at', '>=', $request->date_from))
+            ->when($request->date_to, fn($q) => $q->where('created_at', '<=', $request->date_to))
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return Inertia::render('Archive/Documents/Index', [
+            'documents' => $query,
+            'sectors' => Sector::where('is_active', true)->get(),
+            'folders' => DocumentFolder::where('is_active', true)->get(),
+            'documentTypes' => DocumentType::where('is_active', true)->get(),
+            'filters' => $request->only(['search', 'sector_id', 'folder_id', 'type_id', 'status', 'expired', 'expiring_soon', 'date_from', 'date_to']),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        $this->authorize('create', ArchiveDocument::class);
+        return Inertia::render('Archive/Documents/Create', [
+            'sectors' => Sector::where('is_active', true)->get(),
+            'folders' => DocumentFolder::with('children')->whereNull('parent_id')->where('is_active', true)->get(),
+            'documentTypes' => DocumentType::where('is_active', true)->get(),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'files' => 'required|array|min:1',
+            'files.*' => 'required|file|max:51200|mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx,ppt,pptx,txt',
+            'folder_id' => 'required|exists:document_folders,id',
+            'document_type_id' => 'required|exists:document_types,id',
+            'sector_id' => 'required|exists:sectors,id',
+            'issuing_entity' => 'nullable|string|max:255',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'is_confidential' => 'nullable|boolean',
+        ]);
+
+        $documents = [];
+
+        foreach ($request->file('files') as $file) {
+            $path = $file->store('archive/' . now()->format('Y/m'), 'local');
+            $qrCode = Str::uuid()->toString();
+
+            $title = $request->input('titles.' . $file->getClientOriginalName())
+                ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+
+            $doc = ArchiveDocument::create([
+                'title' => $title,
+                'document_number' => $request->input('document_numbers.' . $file->getClientOriginalName()),
+                'folder_id' => $validated['folder_id'],
+                'document_type_id' => $validated['document_type_id'],
+                'sector_id' => $validated['sector_id'],
+                'uploaded_by' => auth()->id(),
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'file_extension' => $file->getClientOriginalExtension(),
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'issuing_entity' => $validated['issuing_entity'] ?? null,
+                'issue_date' => $validated['issue_date'] ?? null,
+                'expiry_date' => $validated['expiry_date'] ?? null,
+                'qr_code' => $qrCode,
+                'barcode' => strtoupper(Str::random(12)),
+                'notes' => $validated['notes'] ?? null,
+                'is_confidential' => $validated['is_confidential'] ?? false,
+            ]);
+
+            AuditLog::record('upload', $doc, [], $doc->toArray(), "رفع المستند: {$doc->title}");
+
+            // Dispatch OCR job (runs in background via queue)
+            ProcessDocumentOcr::dispatch($doc->id);
+
+            $documents[] = $doc;
+        }
+
+        return redirect()->route('archive.documents.index')
+            ->with('success', 'تم رفع ' . count($documents) . ' مستند بنجاح');
+    }
+
+    public function show(ArchiveDocument $document): Response
+    {
+        $this->authorize('view', $document);
+        $document->load(['folder.parent', 'documentType', 'sector', 'uploader', 'metadata']);
+        AuditLog::record('view', $document, [], [], "استعراض المستند: {$document->title}");
+
+        return Inertia::render('Archive/Documents/Show', [
+            'document' => $document,
+        ]);
+    }
+
+    public function edit(ArchiveDocument $document): Response
+    {
+        $this->authorize('update', $document);
+        return Inertia::render('Archive/Documents/Edit', [
+            'document' => $document->load('metadata'),
+            'sectors' => Sector::where('is_active', true)->get(),
+            'folders' => DocumentFolder::with('children')->whereNull('parent_id')->where('is_active', true)->get(),
+            'documentTypes' => DocumentType::where('is_active', true)->get(),
+        ]);
+    }
+
+    public function update(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('update', $document);
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'document_number' => 'nullable|string|max:255',
+            'folder_id' => 'required|exists:document_folders,id',
+            'document_type_id' => 'required|exists:document_types,id',
+            'sector_id' => 'required|exists:sectors,id',
+            'issuing_entity' => 'nullable|string|max:255',
+            'issue_date' => 'nullable|date',
+            'expiry_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'is_confidential' => 'boolean',
+            'status' => 'in:active,expired,archived,pending_review',
+        ]);
+
+        $old = $document->toArray();
+        $document->update($validated);
+        AuditLog::record('update', $document, $old, $document->fresh()->toArray(), "تعديل المستند: {$document->title}");
+
+        return redirect()->route('archive.documents.show', $document)
+            ->with('success', 'تم تحديث المستند بنجاح');
+    }
+
+    public function destroy(ArchiveDocument $document)
+    {
+        $this->authorize('delete', $document);
+        AuditLog::record('delete', $document, $document->toArray(), [], "حذف المستند: {$document->title}");
+        $document->delete();
+
+        return redirect()->route('archive.documents.index')
+            ->with('success', 'تم حذف المستند بنجاح');
+    }
+
+    public function download(ArchiveDocument $document)
+    {
+        $this->authorize('download', $document);
+        AuditLog::record('download', $document, [], [], "تحميل المستند: {$document->title}");
+
+        return Storage::disk('local')->download($document->file_path, $document->file_name);
+    }
+
+    public function preview(ArchiveDocument $document)
+    {
+        $this->authorize('view', $document);
+        if (!Storage::disk('local')->exists($document->file_path)) {
+            abort(404);
+        }
+
+        $safeName = 'document.' . $document->file_extension;
+        $encodedName = rawurlencode($document->file_name);
+
+        return response()->file(
+            Storage::disk('local')->path($document->file_path),
+            [
+                'Content-Type' => $document->mime_type,
+                'Content-Disposition' => "inline; filename=\"{$safeName}\"; filename*=UTF-8''{$encodedName}",
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
+    }
+
+    public function runOcr(ArchiveDocument $document)
+    {
+        ProcessDocumentOcr::dispatchSync($document->id);
+
+        return back()->with('success', 'تم استخراج النص من المستند');
+    }
+}

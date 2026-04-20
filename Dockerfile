@@ -1,0 +1,116 @@
+# syntax=docker/dockerfile:1.6
+
+# ============================================
+# Stage 1: Build frontend assets (Node.js)
+# ============================================
+FROM node:24-alpine AS node-builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+COPY resources ./resources
+COPY public ./public
+COPY vite.config.js tailwind.config.js postcss.config.js ./
+
+RUN npm run build
+
+# ============================================
+# Stage 2: Install PHP dependencies (Composer)
+# ============================================
+FROM composer:2 AS composer-builder
+
+WORKDIR /app
+
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --no-interaction \
+    --no-progress
+
+COPY . .
+RUN composer dump-autoload --optimize --no-dev
+
+# ============================================
+# Stage 3: Final production image
+# ============================================
+FROM php:8.4-fpm-alpine AS production
+
+# Install system dependencies
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    bash \
+    curl \
+    zip \
+    unzip \
+    git \
+    icu-dev \
+    libzip-dev \
+    libxml2-dev \
+    oniguruma-dev \
+    postgresql-dev \
+    mysql-client \
+    imagemagick \
+    imagemagick-dev \
+    ghostscript \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-data-ara \
+    tesseract-ocr-data-eng \
+    $PHPIZE_DEPS
+
+# Install PHP extensions
+RUN docker-php-ext-configure intl \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        bcmath \
+        intl \
+        zip \
+        opcache \
+        exif \
+        pcntl \
+    && pecl install redis \
+    && docker-php-ext-enable redis
+
+# Cleanup
+RUN apk del $PHPIZE_DEPS \
+    && rm -rf /var/cache/apk/* /tmp/*
+
+# Configure PHP
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
+COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+
+# Configure Nginx
+COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
+
+# Configure Supervisor
+COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy entrypoint
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy application files
+COPY --from=composer-builder --chown=www-data:www-data /app /var/www/html
+COPY --from=node-builder --chown=www-data:www-data /app/public/build /var/www/html/public/build
+
+# Permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Create log directories
+RUN mkdir -p /var/log/supervisor /var/log/nginx \
+    && touch /var/log/supervisor/supervisord.log
+
+EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
