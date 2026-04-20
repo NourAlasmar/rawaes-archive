@@ -30,10 +30,11 @@ RUN composer install \
     --no-autoloader \
     --prefer-dist \
     --no-interaction \
-    --no-progress
+    --no-progress \
+    --ignore-platform-reqs
 
 COPY . .
-RUN composer dump-autoload --optimize --no-dev
+RUN composer dump-autoload --optimize --no-dev --no-scripts
 
 # ============================================
 # Stage 3: Final production image
@@ -55,6 +56,10 @@ RUN apk add --no-cache \
     oniguruma-dev \
     postgresql-dev \
     mysql-client \
+    netcat-openbsd \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    libpng-dev \
     imagemagick \
     imagemagick-dev \
     ghostscript \
@@ -66,6 +71,7 @@ RUN apk add --no-cache \
 
 # Install PHP extensions
 RUN docker-php-ext-configure intl \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         pdo_mysql \
         bcmath \
@@ -74,6 +80,7 @@ RUN docker-php-ext-configure intl \
         opcache \
         exif \
         pcntl \
+        gd \
     && pecl install redis \
     && docker-php-ext-enable redis
 
