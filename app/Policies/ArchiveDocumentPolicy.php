@@ -22,14 +22,17 @@ class ArchiveDocumentPolicy
     {
         if (!$user->can('documents.view')) return false;
 
+        $allowedIds = $user->accessibleSectorIds(); // [] = all
+
         if ($document->is_confidential) {
             if ($document->uploaded_by === $user->id) return true;
-            if ($user->hasRole('archive-manager') && $user->sector_id === $document->sector_id) return true;
+            if ($user->hasRole('archive-manager')
+                && (empty($allowedIds) || in_array($document->sector_id, $allowedIds))) return true;
             return false;
         }
 
         if ($user->hasAnyRole(['archive-manager', 'auditor'])) return true;
-        if ($user->sector_id && $user->sector_id !== $document->sector_id) return false;
+        if (!empty($allowedIds) && !in_array($document->sector_id, $allowedIds)) return false;
 
         return true;
     }
@@ -43,8 +46,10 @@ class ArchiveDocumentPolicy
     {
         if (!$user->can('documents.edit')) return false;
 
+        $allowedIds = $user->accessibleSectorIds();
+
         if ($user->hasRole('archive-manager')) {
-            return !$user->sector_id || $user->sector_id === $document->sector_id;
+            return empty($allowedIds) || in_array($document->sector_id, $allowedIds);
         }
         return $document->uploaded_by === $user->id;
     }
@@ -53,8 +58,10 @@ class ArchiveDocumentPolicy
     {
         if (!$user->can('documents.delete')) return false;
 
+        $allowedIds = $user->accessibleSectorIds();
+
         return $user->hasRole('archive-manager')
-            && (!$user->sector_id || $user->sector_id === $document->sector_id);
+            && (empty($allowedIds) || in_array($document->sector_id, $allowedIds));
     }
 
     public function download(User $user, ArchiveDocument $document): bool

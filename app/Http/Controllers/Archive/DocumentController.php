@@ -21,12 +21,13 @@ class DocumentController extends Controller
     {
         $this->authorize('viewAny', ArchiveDocument::class);
         $user = auth()->user();
+        $allowedSectorIds = $user->accessibleSectorIds(); // [] = full access
 
         $query = ArchiveDocument::with(['folder', 'documentType', 'sector', 'uploader'])
-            // Sector scoping: employees see only their sector
+            // Sector scoping based on accessible sectors
             ->when(
-                $user->sector_id && !$user->hasAnyRole(['super-admin', 'archive-manager', 'auditor']),
-                fn($q) => $q->where('sector_id', $user->sector_id)
+                !empty($allowedSectorIds),
+                fn($q) => $q->whereIn('sector_id', $allowedSectorIds)
             )
             // Hide confidential from others
             ->when(
