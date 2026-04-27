@@ -1,20 +1,29 @@
 import { Head, router } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle } from 'lucide-react';
+import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle, Archive, FolderPlus, FolderOpen, Settings, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 const actionConfig = {
-    upload:        { label: 'رفع مستند',     icon: Upload,    color: 'bg-blue-100 text-blue-700' },
-    view:          { label: 'استعراض',       icon: Eye,       color: 'bg-gray-100 text-gray-700' },
-    download:      { label: 'تحميل',         icon: Download,  color: 'bg-green-100 text-green-700' },
-    update:        { label: 'تعديل',         icon: Edit2,     color: 'bg-amber-100 text-amber-700' },
-    delete:        { label: 'حذف',           icon: Trash2,    color: 'bg-red-100 text-red-700' },
-    login:         { label: 'تسجيل دخول',    icon: LogIn,     color: 'bg-emerald-100 text-emerald-700' },
-    logout:        { label: 'تسجيل خروج',    icon: LogOut,    color: 'bg-slate-100 text-slate-700' },
-    login_failed:  { label: 'دخول فاشل',     icon: AlertCircle, color: 'bg-red-100 text-red-700' },
-    create_user:   { label: 'إنشاء مستخدم',  icon: UserPlus,  color: 'bg-purple-100 text-purple-700' },
-    update_user:   { label: 'تعديل مستخدم',  icon: UserCog,   color: 'bg-purple-100 text-purple-700' },
-    delete_user:   { label: 'حذف مستخدم',    icon: Trash2,    color: 'bg-red-100 text-red-700' },
+    upload:         { label: 'رفع مستند',        icon: Upload,      color: 'bg-blue-100 text-blue-700' },
+    view:           { label: 'استعراض',          icon: Eye,         color: 'bg-gray-100 text-gray-700' },
+    download:       { label: 'تحميل',            icon: Download,    color: 'bg-green-100 text-green-700' },
+    update:         { label: 'تعديل',            icon: Edit2,       color: 'bg-amber-100 text-amber-700' },
+    delete:         { label: 'حذف',              icon: Trash2,      color: 'bg-red-100 text-red-700' },
+    login:          { label: 'تسجيل دخول',       icon: LogIn,       color: 'bg-emerald-100 text-emerald-700' },
+    logout:         { label: 'تسجيل خروج',       icon: LogOut,      color: 'bg-slate-100 text-slate-700' },
+    login_failed:   { label: 'دخول فاشل',        icon: AlertCircle, color: 'bg-red-100 text-red-700' },
+    create_user:    { label: 'إنشاء مستخدم',     icon: UserPlus,    color: 'bg-purple-100 text-purple-700' },
+    update_user:    { label: 'تعديل مستخدم',     icon: UserCog,     color: 'bg-purple-100 text-purple-700' },
+    delete_user:    { label: 'حذف مستخدم',       icon: Trash2,      color: 'bg-red-100 text-red-700' },
+    create_sector:  { label: 'إنشاء قطاع',       icon: Archive,     color: 'bg-amber-100 text-amber-700' },
+    update_sector:  { label: 'تعديل قطاع',       icon: Archive,     color: 'bg-amber-100 text-amber-700' },
+    delete_sector:  { label: 'حذف قطاع',         icon: Archive,     color: 'bg-red-100 text-red-700' },
+    create_folder:  { label: 'إنشاء مجلد',       icon: FolderPlus,  color: 'bg-blue-100 text-blue-700' },
+    update_folder:  { label: 'تعديل مجلد',       icon: FolderOpen,  color: 'bg-blue-100 text-blue-700' },
+    delete_folder:  { label: 'حذف مجلد',         icon: FolderOpen,  color: 'bg-red-100 text-red-700' },
+    create_type:    { label: 'إنشاء نوع مستند',  icon: Settings,    color: 'bg-green-100 text-green-700' },
+    update_type:    { label: 'تعديل نوع مستند',  icon: Settings,    color: 'bg-green-100 text-green-700' },
+    delete_type:    { label: 'حذف نوع مستند',    icon: Settings,    color: 'bg-red-100 text-red-700' },
 };
 
 export default function AuditLogIndex({ logs, filters }) {

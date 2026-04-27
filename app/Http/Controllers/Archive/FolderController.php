@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Archive;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\DocumentFolder;
 use App\Models\Sector;
 use Illuminate\Http\Request;
@@ -35,7 +36,8 @@ class FolderController extends Controller
             'color' => 'nullable|string|max:20',
         ]);
 
-        DocumentFolder::create($validated);
+        $folder = DocumentFolder::create($validated);
+        AuditLog::record('create_folder', $folder, [], $folder->toArray(), "إنشاء مجلد: {$folder->name}");
 
         return back()->with('success', 'تم إنشاء المجلد بنجاح');
     }
@@ -51,7 +53,9 @@ class FolderController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        $old = $folder->toArray();
         $folder->update($validated);
+        AuditLog::record('update_folder', $folder, $old, $folder->fresh()->toArray(), "تعديل مجلد: {$folder->name}");
 
         return back()->with('success', 'تم تحديث المجلد بنجاح');
     }
@@ -62,6 +66,7 @@ class FolderController extends Controller
             return back()->with('error', 'لا يمكن حذف مجلد يحتوي على مستندات');
         }
 
+        AuditLog::record('delete_folder', $folder, $folder->toArray(), [], "حذف مجلد: {$folder->name}");
         $folder->delete();
 
         return back()->with('success', 'تم حذف المجلد بنجاح');

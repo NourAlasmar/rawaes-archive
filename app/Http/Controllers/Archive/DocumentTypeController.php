@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Archive;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\DocumentType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,7 +31,8 @@ class DocumentTypeController extends Controller
             'requires_expiry' => 'boolean',
         ]);
 
-        DocumentType::create($validated);
+        $type = DocumentType::create($validated);
+        AuditLog::record('create_type', $type, [], $type->toArray(), "إنشاء نوع مستند: {$type->name}");
 
         return redirect()->route('archive.document-types.index')
             ->with('success', 'تم إنشاء النوع بنجاح');
@@ -51,7 +53,9 @@ class DocumentTypeController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        $old = $documentType->toArray();
         $documentType->update($validated);
+        AuditLog::record('update_type', $documentType, $old, $documentType->fresh()->toArray(), "تعديل نوع مستند: {$documentType->name}");
 
         return redirect()->route('archive.document-types.index')
             ->with('success', 'تم التحديث بنجاح');
@@ -62,6 +66,7 @@ class DocumentTypeController extends Controller
         if ($documentType->documents()->count() > 0) {
             return back()->with('error', 'لا يمكن حذف نوع مستخدم في مستندات');
         }
+        AuditLog::record('delete_type', $documentType, $documentType->toArray(), [], "حذف نوع مستند: {$documentType->name}");
         $documentType->delete();
 
         return back()->with('success', 'تم الحذف بنجاح');
