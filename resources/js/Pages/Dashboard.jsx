@@ -289,87 +289,165 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
 // ─────────────────────────────────────────────────────────
 // ADMIN DASHBOARD
 // ─────────────────────────────────────────────────────────
-function AdminDashboard({ stats, bySector, byType, recent, expiringList, recentActivity }) {
+function MiniTrendChart({ data }) {
+    if (!data || data.length === 0) {
+        return <div className="h-32 flex items-center justify-center text-xs text-white/50">لا توجد بيانات</div>;
+    }
+    const max = Math.max(...data.map(d => d.count), 1);
+    return (
+        <div className="flex items-end gap-1 h-32">
+            {data.slice(-14).map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 group" title={`${d.date}: ${d.count}`}>
+                    <div
+                        className="w-full bg-amber-400/80 hover:bg-amber-300 rounded-t transition-all cursor-pointer"
+                        style={{ height: `${(d.count / max) * 100}%`, minHeight: '4px' }}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function StatCard({ icon: Icon, label, value, color, accent, href, sub }) {
+    const content = (
+        <div className={`relative overflow-hidden bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all ${href ? 'cursor-pointer' : ''}`}>
+            <div className={`absolute -top-8 -left-8 w-24 h-24 ${accent} rounded-full opacity-50 blur-2xl`}></div>
+            <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2.5 rounded-xl ${accent}`}>
+                        <Icon size={20} className={color} />
+                    </div>
+                </div>
+                <p className={`text-3xl font-bold ${color}`}>{value.toLocaleString('ar-SA')}</p>
+                <p className="text-sm text-gray-500 mt-1">{label}</p>
+                {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+            </div>
+        </div>
+    );
+    return href ? <Link href={href}>{content}</Link> : content;
+}
+
+function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, recentActivity, currentUser }) {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء الخير';
+    const todayCount = trend?.length > 0 ? (trend[trend.length - 1]?.count ?? 0) : 0;
+
     return (
         <>
-            {/* Top Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <Link href="/archive/documents" className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-amber-300 hover:shadow-md transition-all">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500 mb-1">إجمالي المستندات</p>
-                            <p className="text-2xl font-bold text-blue-600">{stats.total.toLocaleString('ar-SA')}</p>
+            {/* Hero Banner with Trend */}
+            <div className="relative overflow-hidden bg-gradient-to-l from-[#1e2a4a] via-[#243561] to-[#2c3e6e] rounded-2xl p-6 mb-6 text-white">
+                <div className="absolute -top-20 -left-20 w-72 h-72 bg-amber-400/20 rounded-full blur-3xl"></div>
+                <div className="absolute -bottom-20 -right-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl"></div>
+
+                <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    <div>
+                        <div className="flex items-center gap-2 text-amber-300 text-sm mb-2">
+                            <Sparkles size={14} />
+                            <span>{greeting}، {currentUser?.name}</span>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-blue-50">
-                            <FileText size={20} className="text-blue-600" />
-                        </div>
-                    </div>
-                </Link>
-                <Link href="/archive/documents?expiring_soon=true" className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-amber-300 hover:shadow-md transition-all">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500 mb-1">تنتهي خلال 30 يوم</p>
-                            <p className="text-2xl font-bold text-amber-600">{stats.expiring_soon.toLocaleString('ar-SA')}</p>
-                        </div>
-                        <div className="p-2.5 rounded-lg bg-amber-50">
-                            <Clock size={20} className="text-amber-600" />
-                        </div>
-                    </div>
-                </Link>
-                <Link href="/archive/documents?expired=true" className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-red-300 hover:shadow-md transition-all">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500 mb-1">منتهية الصلاحية</p>
-                            <p className="text-2xl font-bold text-red-600">{stats.expired.toLocaleString('ar-SA')}</p>
-                        </div>
-                        <div className="p-2.5 rounded-lg bg-red-50">
-                            <AlertTriangle size={20} className="text-red-600" />
+                        <h2 className="text-2xl md:text-3xl font-bold mb-2">إدارة نظام روائس</h2>
+                        <p className="text-white/70 text-sm mb-5">
+                            إجمالي <strong className="text-amber-300">{stats.total.toLocaleString('ar-SA')}</strong> مستند مؤرشف،
+                            تم رفع <strong className="text-amber-300">{todayCount}</strong> اليوم
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            <Link href="/archive/documents/create" className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg">
+                                <Plus size={16} />
+                                رفع مستند
+                            </Link>
+                            <Link href="/users/create" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-xl text-sm font-medium border border-white/20 transition-colors">
+                                <Users size={16} />
+                                إضافة مستخدم
+                            </Link>
+                            <Link href="/reports" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2.5 rounded-xl text-sm font-medium border border-white/20 transition-colors">
+                                <TrendingUp size={16} />
+                                التقارير
+                            </Link>
                         </div>
                     </div>
-                </Link>
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500 mb-1">مستندات سرية</p>
-                            <p className="text-2xl font-bold text-purple-600">{stats.confidential.toLocaleString('ar-SA')}</p>
+
+                    <div className="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs text-white/60">آخر 14 يوم — رفع المستندات</p>
+                            <TrendingUp size={14} className="text-amber-300" />
                         </div>
-                        <div className="p-2.5 rounded-lg bg-purple-50">
-                            <Lock size={20} className="text-purple-600" />
-                        </div>
+                        <MiniTrendChart data={trend} />
                     </div>
                 </div>
             </div>
 
-            {/* Secondary */}
+            {/* Top Stats — Big & Beautiful */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatCard
+                    icon={FileText}
+                    label="إجمالي المستندات"
+                    value={stats.total}
+                    color="text-blue-600"
+                    accent="bg-blue-50"
+                    href="/archive/documents"
+                />
+                <StatCard
+                    icon={Clock}
+                    label="تنتهي خلال 30 يوم"
+                    value={stats.expiring_soon}
+                    color="text-amber-600"
+                    accent="bg-amber-50"
+                    href="/archive/documents?expiring_soon=true"
+                />
+                <StatCard
+                    icon={AlertTriangle}
+                    label="منتهية الصلاحية"
+                    value={stats.expired}
+                    color="text-red-600"
+                    accent="bg-red-50"
+                    href="/archive/documents?expired=true"
+                />
+                <StatCard
+                    icon={Lock}
+                    label="مستندات سرية"
+                    value={stats.confidential}
+                    color="text-purple-600"
+                    accent="bg-purple-50"
+                />
+            </div>
+
+            {/* Quick Resources Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 {[
-                    { icon: Archive, label: 'قطاعات', value: stats.sectors, color: 'text-amber-600', bg: 'bg-amber-50' },
-                    { icon: FolderOpen, label: 'مجلدات', value: stats.folders, color: 'text-blue-600', bg: 'bg-blue-50' },
-                    { icon: Settings, label: 'أنواع', value: stats.types, color: 'text-green-600', bg: 'bg-green-50' },
-                    stats.users !== null && { icon: Users, label: 'مستخدمون', value: stats.users, color: 'text-purple-600', bg: 'bg-purple-50' },
+                    { icon: Archive,    label: 'قطاعات',     value: stats.sectors, color: 'text-amber-600',  bg: 'bg-amber-50',  href: '/archive/sectors' },
+                    { icon: FolderOpen, label: 'مجلدات',     value: stats.folders, color: 'text-blue-600',   bg: 'bg-blue-50',   href: '/archive/folders' },
+                    { icon: Settings,   label: 'أنواع',      value: stats.types,   color: 'text-green-600',  bg: 'bg-green-50',  href: '/archive/document-types' },
+                    stats.users !== null && {
+                        icon: Users,    label: 'مستخدمون',   value: stats.users,   color: 'text-purple-600', bg: 'bg-purple-50', href: '/users'
+                    },
                 ].filter(Boolean).map((s, i) => {
                     const Icon = s.icon;
                     return (
-                        <div key={i} className="bg-white rounded-xl border border-gray-100 p-3 flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${s.bg}`}>
-                                <Icon size={16} className={s.color} />
+                        <Link key={i} href={s.href} className="group bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3 hover:border-amber-300 hover:shadow-md transition-all">
+                            <div className={`p-2.5 rounded-xl ${s.bg} group-hover:scale-110 transition-transform`}>
+                                <Icon size={18} className={s.color} />
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500">{s.label}</p>
-                                <p className="font-bold text-gray-800">{s.value}</p>
+                                <p className="font-bold text-gray-800 text-lg">{s.value}</p>
                             </div>
-                        </div>
+                        </Link>
                     );
                 })}
             </div>
 
-            {/* Charts */}
+            {/* Charts side by side */}
             <div className={`grid grid-cols-1 ${bySector.length > 0 ? 'lg:grid-cols-2' : ''} gap-5 mb-6`}>
                 {bySector.length > 0 && (
                     <div className="bg-white rounded-2xl border border-gray-100 p-5">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-bold text-gray-800">المستندات حسب القطاع</h3>
-                            <Archive size={18} className="text-amber-500" />
+                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                <Archive size={18} className="text-amber-500" />
+                                توزيع حسب القطاع
+                            </h3>
+                            <Link href="/archive/sectors" className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                                إدارة <ArrowLeft size={11} />
+                            </Link>
                         </div>
                         <BarChart data={bySector} color="bg-amber-500" />
                     </div>
@@ -377,68 +455,106 @@ function AdminDashboard({ stats, bySector, byType, recent, expiringList, recentA
 
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-800">المستندات حسب النوع</h3>
-                        <FileText size={18} className="text-blue-500" />
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <FileText size={18} className="text-blue-500" />
+                            توزيع حسب النوع
+                        </h3>
+                        <Link href="/archive/document-types" className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                            إدارة <ArrowLeft size={11} />
+                        </Link>
                     </div>
                     <BarChart data={byType} color="bg-blue-500" />
                 </div>
             </div>
 
-            {/* Recent + Expiring */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Recent + Expiring + Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-800">أحدث المستندات</h3>
-                        <Link href="/archive/documents" className="text-xs text-amber-600 hover:text-amber-700">عرض الكل ←</Link>
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <FileText size={18} className="text-blue-500" />
+                            أحدث المستندات
+                        </h3>
+                        <Link href="/archive/documents" className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                            عرض الكل <ArrowLeft size={11} />
+                        </Link>
                     </div>
-                    <div className="space-y-2">
-                        {recent.map(doc => (
-                            <Link key={doc.id} href={`/archive/documents/${doc.id}`} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                                <div className="p-2 bg-blue-50 rounded-lg">
-                                    <FileText size={16} className="text-blue-500" />
+                    <div className="space-y-1.5">
+                        {recent.length > 0 ? recent.map(doc => (
+                            <Link
+                                key={doc.id}
+                                href={`/archive/documents/${doc.id}`}
+                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group"
+                            >
+                                <div className={`p-2 rounded-lg ${doc.is_expired ? 'bg-red-50' : doc.is_expiring_soon ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                                    <FileText size={16} className={doc.is_expired ? 'text-red-500' : doc.is_expiring_soon ? 'text-amber-500' : 'text-blue-500'} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-800 truncate">{doc.title}</p>
-                                    <p className="text-xs text-gray-500">{doc.sector?.name} · {doc.document_type?.name} · {doc.uploader?.name}</p>
+                                    <p className="text-sm font-medium text-gray-800 truncate group-hover:text-amber-600 transition-colors">{doc.title}</p>
+                                    <p className="text-xs text-gray-500">{doc.sector?.name} · {doc.document_type?.name}</p>
                                 </div>
-                                <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(doc.created_at).toLocaleDateString('ar-SA')}</span>
+                                <div className="text-left shrink-0">
+                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('ar-SA')}</p>
+                                    {doc.uploader && <p className="text-xs text-gray-400 mt-0.5">{doc.uploader.name}</p>}
+                                </div>
                             </Link>
-                        ))}
+                        )) : (
+                            <div className="py-12 text-center">
+                                <FileText size={36} className="mx-auto text-gray-200 mb-3" />
+                                <p className="text-gray-400 text-sm">لا توجد مستندات</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-800">تنبيهات الانتهاء</h3>
-                        <Clock size={18} className="text-amber-500" />
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <Bell size={18} className="text-amber-500" />
+                            تنبيهات
+                        </h3>
                     </div>
                     <div className="space-y-2">
                         {expiringList.length > 0 ? expiringList.map(doc => (
-                            <Link key={doc.id} href={`/archive/documents/${doc.id}`} className="block p-3 rounded-lg bg-amber-50 border border-amber-100 hover:bg-amber-100/70 transition-colors">
+                            <Link
+                                key={doc.id}
+                                href={`/archive/documents/${doc.id}`}
+                                className="block p-3 rounded-xl bg-gradient-to-l from-amber-50 to-amber-50/30 border border-amber-100 hover:border-amber-300 transition-colors"
+                            >
                                 <p className="text-sm font-medium text-gray-800 truncate">{doc.title}</p>
-                                <p className="text-xs text-amber-700 mt-0.5">ينتهي: {doc.expiry_date}</p>
+                                <div className="flex items-center gap-1 mt-1">
+                                    <Calendar size={11} className="text-amber-600" />
+                                    <p className="text-xs text-amber-700">ينتهي: {doc.expiry_date}</p>
+                                </div>
                             </Link>
-                        )) : <p className="text-center text-gray-400 text-sm py-8">لا توجد تنبيهات</p>}
+                        )) : (
+                            <div className="py-10 text-center">
+                                <Bell size={28} className="mx-auto text-gray-200 mb-2" />
+                                <p className="text-xs text-gray-400">لا توجد تنبيهات</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Activity log */}
             {recentActivity.length > 0 && (
-                <div className="mt-5 bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <Activity size={18} className="text-purple-500" />
-                            النشاط الأخير
+                            آخر النشاط في النظام
                         </h3>
-                        <Link href="/archive/audit-logs" className="text-xs text-amber-600 hover:text-amber-700">عرض كامل السجل ←</Link>
+                        <Link href="/archive/audit-logs" className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                            عرض كامل السجل <ArrowLeft size={11} />
+                        </Link>
                     </div>
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {recentActivity.map(log => {
                             const cfg = actionIcons[log.action] ?? { icon: Activity, text: 'text-gray-500', bg: 'bg-gray-50' };
                             const ActionIcon = cfg.icon;
                             return (
-                                <div key={log.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
+                                <div key={log.id} className="flex items-center gap-3 p-2.5 hover:bg-gray-50 rounded-lg transition-colors">
                                     <div className={`p-1.5 rounded-lg ${cfg.bg}`}>
                                         <ActionIcon size={14} className={cfg.text} />
                                     </div>
@@ -446,7 +562,7 @@ function AdminDashboard({ stats, bySector, byType, recent, expiringList, recentA
                                         <p className="text-sm text-gray-700 truncate">{log.description ?? log.action}</p>
                                         <p className="text-xs text-gray-400">{log.user_name}</p>
                                     </div>
-                                    <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(log.created_at).toLocaleString('ar-SA')}</span>
+                                    <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(log.created_at).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
                                 </div>
                             );
                         })}
