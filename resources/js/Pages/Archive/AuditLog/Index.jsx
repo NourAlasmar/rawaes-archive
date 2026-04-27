@@ -1,15 +1,20 @@
 import { Head, router } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, Upload } from 'lucide-react';
+import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 
 const actionConfig = {
-    upload:   { label: 'رفع',        icon: Upload,   color: 'bg-blue-100 text-blue-700' },
-    view:     { label: 'استعراض',   icon: Eye,      color: 'bg-gray-100 text-gray-700' },
-    download: { label: 'تحميل',     icon: Download, color: 'bg-green-100 text-green-700' },
-    update:   { label: 'تعديل',     icon: Edit2,    color: 'bg-amber-100 text-amber-700' },
-    delete:   { label: 'حذف',       icon: Trash2,   color: 'bg-red-100 text-red-700' },
-    login:    { label: 'دخول',      icon: LogIn,    color: 'bg-purple-100 text-purple-700' },
+    upload:        { label: 'رفع مستند',     icon: Upload,    color: 'bg-blue-100 text-blue-700' },
+    view:          { label: 'استعراض',       icon: Eye,       color: 'bg-gray-100 text-gray-700' },
+    download:      { label: 'تحميل',         icon: Download,  color: 'bg-green-100 text-green-700' },
+    update:        { label: 'تعديل',         icon: Edit2,     color: 'bg-amber-100 text-amber-700' },
+    delete:        { label: 'حذف',           icon: Trash2,    color: 'bg-red-100 text-red-700' },
+    login:         { label: 'تسجيل دخول',    icon: LogIn,     color: 'bg-emerald-100 text-emerald-700' },
+    logout:        { label: 'تسجيل خروج',    icon: LogOut,    color: 'bg-slate-100 text-slate-700' },
+    login_failed:  { label: 'دخول فاشل',     icon: AlertCircle, color: 'bg-red-100 text-red-700' },
+    create_user:   { label: 'إنشاء مستخدم',  icon: UserPlus,  color: 'bg-purple-100 text-purple-700' },
+    update_user:   { label: 'تعديل مستخدم',  icon: UserCog,   color: 'bg-purple-100 text-purple-700' },
+    delete_user:   { label: 'حذف مستخدم',    icon: Trash2,    color: 'bg-red-100 text-red-700' },
 };
 
 export default function AuditLogIndex({ logs, filters }) {
@@ -95,7 +100,10 @@ export default function AuditLogIndex({ logs, filters }) {
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-500 font-mono">{log.ip_address}</td>
                                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{log.description ?? '—'}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{log.created_at}</td>
+                                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                                            <div>{new Date(log.created_at).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                                            <div className="text-xs text-gray-400">{new Date(log.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</div>
+                                        </td>
                                     </tr>
                                 );
                             }) : (
