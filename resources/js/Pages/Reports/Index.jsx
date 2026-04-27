@@ -193,8 +193,8 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
             </div>
 
             {/* Trend Area Chart */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-                <div className="flex items-center justify-between mb-5">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6" dir="ltr">
+                <div className="flex items-center justify-between mb-5" dir="rtl">
                     <div>
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <TrendingUp size={18} className="text-green-500" />
@@ -205,7 +205,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                 </div>
                 <div className="h-72">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={trendData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                        <AreaChart data={trendData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
                             <defs>
                                 <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor={COLORS.amber} stopOpacity={0.4}/>
@@ -213,7 +213,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} stroke="#e2e8f0" reversed />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }} stroke="#e2e8f0" />
                             <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} stroke="#e2e8f0" />
                             <Tooltip content={<CustomTooltip />} />
                             <Area
@@ -228,10 +228,10 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                 </div>
             </div>
 
-            {/* Two charts: Sector Bar + Type Pie */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-                {/* Sector bar chart */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5">
+            {/* Two charts: Sector + Type — Both use horizontal bars + legend list (best for Arabic) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+                {/* Sector chart */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-5">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <BarChart3 size={18} className="text-amber-500" />
@@ -239,104 +239,148 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                         </h3>
                         <span className="text-xs text-gray-400">{bySector.length} قطاع</span>
                     </div>
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={bySector} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} stroke="#e2e8f0" />
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569' }} stroke="#e2e8f0" width={75} />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
-                                <Bar dataKey="count" name="مستندات" fill={COLORS.amber} radius={[0, 6, 6, 0]}>
-                                    {bySector.map((_, i) => (
-                                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {bySector.length > 0 ? (
+                        <div className="space-y-3">
+                            {bySector.map((s, i) => {
+                                const max = Math.max(...bySector.map(x => parseInt(x.count)), 1);
+                                const pct = (parseInt(s.count) / max) * 100;
+                                const color = CHART_COLORS[i % CHART_COLORS.length];
+                                return (
+                                    <div key={i}>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-sm font-medium text-gray-700">{s.name}</span>
+                                            <span className="text-xs font-bold text-gray-800 bg-gray-50 px-2 py-0.5 rounded">{s.count}</span>
+                                        </div>
+                                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-500"
+                                                style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}cc)` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : <p className="text-center text-gray-400 text-sm py-12">لا توجد بيانات</p>}
                 </div>
 
-                {/* Type pie chart */}
+                {/* Type Donut chart */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <h3 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
                         <PieIcon size={18} className="text-blue-500" />
-                        حسب النوع
+                        المستندات حسب النوع
                     </h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={byType.map((t, i) => ({ ...t, value: parseInt(t.count), fill: CHART_COLORS[i % CHART_COLORS.length] }))}
-                                    cx="50%" cy="50%" innerRadius={50} outerRadius={85}
-                                    paddingAngle={3} dataKey="value"
-                                />
-                                <Tooltip content={<CustomTooltip />} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                    {/* Legend */}
-                    <div className="space-y-1.5 mt-3">
-                        {byType.slice(0, 5).map((t, i) => (
-                            <div key={i} className="flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2">
-                                    <span className="w-2.5 h-2.5 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}></span>
-                                    <span className="text-gray-700">{t.name}</span>
-                                </div>
-                                <span className="font-bold text-gray-900">{t.count}</span>
+                    {byType.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3 items-center">
+                            <div className="h-52" dir="ltr">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={byType.map((t, i) => ({ ...t, value: parseInt(t.count), fill: CHART_COLORS[i % CHART_COLORS.length] }))}
+                                            cx="50%" cy="50%" innerRadius={45} outerRadius={75}
+                                            paddingAngle={2} dataKey="value"
+                                        />
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </div>
-                        ))}
-                    </div>
+                            <div className="space-y-2 max-h-52 overflow-y-auto">
+                                {byType.map((t, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}></span>
+                                            <span className="text-gray-700 truncate">{t.name}</span>
+                                        </div>
+                                        <span className="font-bold text-gray-900 bg-gray-50 px-1.5 py-0.5 rounded">{t.count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : <p className="text-center text-gray-400 text-sm py-12">لا توجد بيانات</p>}
                 </div>
             </div>
 
             {/* Top Uploaders + Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Top Uploaders - ranked list with avatars */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-5">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <Users size={18} className="text-purple-500" />
                             الأكثر رفعاً
                         </h3>
-                        <span className="text-xs text-gray-400">Top 10</span>
+                        <span className="text-xs text-gray-400">أفضل {topUploaders.length}</span>
                     </div>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={topUploaders} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} stroke="#e2e8f0" angle={-15} textAnchor="end" height={50} />
-                                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} stroke="#e2e8f0" />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
-                                <Bar dataKey="count" name="مستندات" fill={COLORS.purple} radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {topUploaders.length > 0 ? (
+                        <div className="space-y-2.5">
+                            {topUploaders.map((u, i) => {
+                                const max = Math.max(...topUploaders.map(x => parseInt(x.count)), 1);
+                                const pct = (parseInt(u.count) / max) * 100;
+                                const ranks = ['🥇', '🥈', '🥉'];
+                                return (
+                                    <div key={i} className="flex items-center gap-3">
+                                        <div className="w-8 text-center text-base shrink-0">
+                                            {i < 3 ? ranks[i] : <span className="text-xs text-gray-400">#{i + 1}</span>}
+                                        </div>
+                                        <div className="w-9 h-9 shrink-0 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                                            {u.name?.[0] ?? '؟'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-sm font-medium text-gray-700 truncate">{u.name}</span>
+                                                <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{u.count}</span>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-l from-purple-500 to-purple-400 rounded-full transition-all duration-500"
+                                                    style={{ width: `${pct}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : <p className="text-center text-gray-400 text-sm py-12">لا توجد بيانات</p>}
                 </div>
 
+                {/* Activity summary - clean list */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex items-center justify-between mb-5">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2">
                             <Activity size={18} className="text-green-500" />
                             ملخص النشاط
                         </h3>
+                        <span className="text-xs text-gray-400">{activityData.reduce((s, a) => s + a.value, 0)} حدث</span>
                     </div>
                     {activityData.length > 0 ? (
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={activityData}
-                                        cx="50%" cy="50%" outerRadius={90}
-                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                        labelLine={false}
-                                        dataKey="value"
-                                    />
-                                    <Tooltip content={<CustomTooltip />} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                        <div className="space-y-2">
+                            {activityData.map((a, i) => {
+                                const total = activityData.reduce((s, x) => s + x.value, 0);
+                                const pct = total > 0 ? (a.value / total) * 100 : 0;
+                                return (
+                                    <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+                                        <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: a.fill }}></div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-sm font-medium text-gray-700">{a.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-gray-500">{pct.toFixed(0)}%</span>
+                                                    <span className="text-sm font-bold text-gray-800">{a.value.toLocaleString('ar-SA')}</span>
+                                                </div>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{ width: `${pct}%`, background: a.fill }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    ) : (
-                        <p className="text-center text-gray-400 text-sm py-12">لا يوجد نشاط</p>
-                    )}
+                    ) : <p className="text-center text-gray-400 text-sm py-12">لا يوجد نشاط</p>}
                 </div>
             </div>
         </>
