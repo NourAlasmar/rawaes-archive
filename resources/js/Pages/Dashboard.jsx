@@ -291,19 +291,43 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
 // ─────────────────────────────────────────────────────────
 function MiniTrendChart({ data }) {
     if (!data || data.length === 0) {
-        return <div className="h-32 flex items-center justify-center text-xs text-white/50">لا توجد بيانات</div>;
+        return <div className="h-32 flex items-center justify-center text-xs text-white/50">لا توجد بيانات للفترة</div>;
     }
-    const max = Math.max(...data.map(d => d.count), 1);
+
+    // Take last 14 entries
+    const slice = data.slice(-14);
+    const max = Math.max(...slice.map(d => parseInt(d.count) || 0), 1);
+
     return (
-        <div className="flex items-end gap-1 h-32">
-            {data.slice(-14).map((d, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1 group" title={`${d.date}: ${d.count}`}>
-                    <div
-                        className="w-full bg-amber-400/80 hover:bg-amber-300 rounded-t transition-all cursor-pointer"
-                        style={{ height: `${(d.count / max) * 100}%`, minHeight: '4px' }}
-                    />
-                </div>
-            ))}
+        <div className="space-y-2">
+            <div className="flex items-end gap-1.5 h-28" dir="ltr">
+                {slice.map((d, i) => {
+                    const count = parseInt(d.count) || 0;
+                    const heightPct = (count / max) * 100;
+                    return (
+                        <div
+                            key={i}
+                            className="flex-1 relative group flex items-end h-full"
+                            title={`${d.date}: ${count} مستند`}
+                        >
+                            <div
+                                className="w-full bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-md hover:from-amber-400 hover:to-amber-200 transition-all cursor-pointer"
+                                style={{ height: `${Math.max(heightPct, 4)}%` }}
+                            >
+                                {count > 0 && (
+                                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity font-bold whitespace-nowrap">
+                                        {count}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-white/40">
+                <span>{slice[0]?.date?.slice(5) ?? ''}</span>
+                <span>{slice[slice.length - 1]?.date?.slice(5) ?? 'اليوم'}</span>
+            </div>
         </div>
     );
 }
