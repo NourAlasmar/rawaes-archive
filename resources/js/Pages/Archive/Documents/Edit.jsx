@@ -2,7 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import { Save, ArrowLeft, FileText } from 'lucide-react';
 
-function FolderSelect({ folders, value, onChange }) {
+function FolderSelect({ folders, value, onChange, sectorId }) {
     const renderOptions = (items, depth = 0) =>
         items.map(f => [
             <option key={f.id} value={f.id}>
@@ -10,6 +10,10 @@ function FolderSelect({ folders, value, onChange }) {
             </option>,
             ...(f.children?.length ? renderOptions(f.children, depth + 1) : [])
         ]);
+
+    const filtered = sectorId
+        ? folders.filter(f => String(f.sector_id) === String(sectorId))
+        : folders;
 
     return (
         <select
@@ -19,7 +23,7 @@ function FolderSelect({ folders, value, onChange }) {
             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
         >
             <option value="">اختر المجلد</option>
-            {renderOptions(folders)}
+            {renderOptions(filtered)}
         </select>
     );
 }
@@ -124,7 +128,10 @@ export default function EditDocument({ document, sectors, folders, documentTypes
                                 </label>
                                 <select
                                     value={data.sector_id}
-                                    onChange={e => setData('sector_id', e.target.value)}
+                                    onChange={e => {
+                                        setData('sector_id', e.target.value);
+                                        setData('folder_id', '');
+                                    }}
                                     required
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
@@ -154,6 +161,7 @@ export default function EditDocument({ document, sectors, folders, documentTypes
                                     folders={folders}
                                     value={data.folder_id}
                                     onChange={v => setData('folder_id', v)}
+                                    sectorId={data.sector_id}
                                 />
                             </div>
                         </div>

@@ -16,7 +16,7 @@ function formatBytes(bytes) {
     return bytes + ' B';
 }
 
-function FolderSelect({ folders, value, onChange }) {
+function FolderSelect({ folders, value, onChange, sectorId, disabled }) {
     const renderOptions = (items, depth = 0) =>
         items.map(f => [
             <option key={f.id} value={f.id}>
@@ -25,15 +25,26 @@ function FolderSelect({ folders, value, onChange }) {
             ...(f.children?.length ? renderOptions(f.children, depth + 1) : [])
         ]);
 
+    const filtered = sectorId
+        ? folders.filter(f => String(f.sector_id) === String(sectorId))
+        : [];
+
     return (
         <select
             value={value}
             onChange={e => onChange(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+            disabled={disabled || !sectorId}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
             required
         >
-            <option value="">اختر المجلد</option>
-            {renderOptions(folders)}
+            <option value="">
+                {!sectorId
+                    ? 'اختر القطاع أولاً'
+                    : filtered.length === 0
+                        ? 'لا توجد مجلدات لهذا القطاع'
+                        : 'اختر المجلد'}
+            </option>
+            {renderOptions(filtered)}
         </select>
     );
 }
@@ -216,7 +227,10 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                 </label>
                                 <select
                                     value={data.sector_id}
-                                    onChange={e => setData('sector_id', e.target.value)}
+                                    onChange={e => {
+                                        setData('sector_id', e.target.value);
+                                        setData('folder_id', ''); // reset folder when sector changes
+                                    }}
                                     required
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
@@ -250,6 +264,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                     folders={folders}
                                     value={data.folder_id}
                                     onChange={v => setData('folder_id', v)}
+                                    sectorId={data.sector_id}
                                 />
                                 {errors.folder_id && <p className="text-red-500 text-xs mt-1">{errors.folder_id}</p>}
                             </div>

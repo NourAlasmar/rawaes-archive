@@ -63,7 +63,10 @@ class DocumentController extends Controller
         $this->authorize('create', ArchiveDocument::class);
         return Inertia::render('Archive/Documents/Create', [
             'sectors' => Sector::where('is_active', true)->get(),
-            'folders' => DocumentFolder::with('children')->whereNull('parent_id')->where('is_active', true)->get(),
+            'folders' => DocumentFolder::with('children')
+                ->whereNull('parent_id')
+                ->where('is_active', true)
+                ->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']),
             'documentTypes' => DocumentType::where('is_active', true)->get(),
         ]);
     }
@@ -142,7 +145,10 @@ class DocumentController extends Controller
         return Inertia::render('Archive/Documents/Edit', [
             'document' => $document->load('metadata'),
             'sectors' => Sector::where('is_active', true)->get(),
-            'folders' => DocumentFolder::with('children')->whereNull('parent_id')->where('is_active', true)->get(),
+            'folders' => DocumentFolder::with('children')
+                ->whereNull('parent_id')
+                ->where('is_active', true)
+                ->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']),
             'documentTypes' => DocumentType::where('is_active', true)->get(),
         ]);
     }
