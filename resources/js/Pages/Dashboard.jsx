@@ -289,49 +289,6 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
 // ─────────────────────────────────────────────────────────
 // ADMIN DASHBOARD
 // ─────────────────────────────────────────────────────────
-function MiniTrendChart({ data }) {
-    if (!data || data.length === 0) {
-        return <div className="h-32 flex items-center justify-center text-xs text-white/50">لا توجد بيانات للفترة</div>;
-    }
-
-    // Take last 14 entries
-    const slice = data.slice(-14);
-    const max = Math.max(...slice.map(d => parseInt(d.count) || 0), 1);
-
-    return (
-        <div className="space-y-2">
-            <div className="flex items-end gap-1.5 h-28" dir="ltr">
-                {slice.map((d, i) => {
-                    const count = parseInt(d.count) || 0;
-                    const heightPct = (count / max) * 100;
-                    return (
-                        <div
-                            key={i}
-                            className="flex-1 relative group flex items-end h-full"
-                            title={`${d.date}: ${count} مستند`}
-                        >
-                            <div
-                                className="w-full bg-gradient-to-t from-amber-500 to-amber-300 rounded-t-md hover:from-amber-400 hover:to-amber-200 transition-all cursor-pointer"
-                                style={{ height: `${Math.max(heightPct, 4)}%` }}
-                            >
-                                {count > 0 && (
-                                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity font-bold whitespace-nowrap">
-                                        {count}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-            <div className="flex items-center justify-between text-[10px] text-white/40">
-                <span>{slice[0]?.date?.slice(5) ?? ''}</span>
-                <span>{slice[slice.length - 1]?.date?.slice(5) ?? 'اليوم'}</span>
-            </div>
-        </div>
-    );
-}
-
 function StatCard({ icon: Icon, label, value, color, accent, href, sub }) {
     const content = (
         <div className={`relative overflow-hidden bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all ${href ? 'cursor-pointer' : ''}`}>
@@ -358,12 +315,12 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
 
     return (
         <>
-            {/* Hero Banner with Trend */}
+            {/* Hero Banner */}
             <div className="relative overflow-hidden bg-gradient-to-l from-[#1e2a4a] via-[#243561] to-[#2c3e6e] rounded-2xl p-6 mb-6 text-white">
                 <div className="absolute -top-20 -left-20 w-72 h-72 bg-amber-400/20 rounded-full blur-3xl"></div>
                 <div className="absolute -bottom-20 -right-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl"></div>
 
-                <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 text-amber-300 text-sm mb-2">
                             <Sparkles size={14} />
@@ -371,8 +328,7 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                         </div>
                         <h2 className="text-2xl md:text-3xl font-bold mb-2">إدارة نظام روائس</h2>
                         <p className="text-white/70 text-sm mb-5">
-                            إجمالي <strong className="text-amber-300">{stats.total.toLocaleString('ar-SA')}</strong> مستند مؤرشف،
-                            تم رفع <strong className="text-amber-300">{todayCount}</strong> اليوم
+                            إجمالي <strong className="text-amber-300">{stats.total.toLocaleString('ar-SA')}</strong> مستند مؤرشف
                         </p>
                         <div className="flex flex-wrap gap-2">
                             <Link href="/archive/documents/create" className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg">
@@ -388,14 +344,6 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                                 التقارير
                             </Link>
                         </div>
-                    </div>
-
-                    <div className="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
-                        <div className="flex items-center justify-between mb-3">
-                            <p className="text-xs text-white/60">آخر 14 يوم — رفع المستندات</p>
-                            <TrendingUp size={14} className="text-amber-300" />
-                        </div>
-                        <MiniTrendChart data={trend} />
                     </div>
                 </div>
             </div>
