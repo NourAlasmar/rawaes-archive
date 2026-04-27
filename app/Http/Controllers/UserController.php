@@ -80,11 +80,15 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        $user->load('roles');
+        $userData = $user->toArray();
+        $userData['allowed_sectors'] = $user->allowedSectors()->get(['sectors.id'])->toArray();
+        $userData['allowed_folders'] = $user->allowedFolders()->get(['document_folders.id'])->toArray();
+
         return Inertia::render('Users/Form', [
-            'user' => $user->load(['roles', 'allowedSectors:id', 'allowedFolders:id']),
+            'user' => $userData,
             'sectors' => Sector::where('is_active', true)->get(['id', 'name']),
-            'folders' => DocumentFolder::with('sector:id,name')
-                ->where('is_active', true)
+            'folders' => DocumentFolder::where('is_active', true)
                 ->get(['id', 'sector_id', 'parent_id', 'name']),
             'roles' => Role::all(['id', 'name']),
         ]);
