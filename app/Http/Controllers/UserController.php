@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\DocumentFolder;
 use App\Models\Sector;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -37,6 +38,9 @@ class UserController extends Controller
     {
         return Inertia::render('Users/Form', [
             'sectors' => Sector::where('is_active', true)->get(['id', 'name']),
+            'folders' => DocumentFolder::with('sector:id,name')
+                ->where('is_active', true)
+                ->get(['id', 'sector_id', 'parent_id', 'name']),
             'roles' => Role::all(['id', 'name']),
         ]);
     }
@@ -54,13 +58,19 @@ class UserController extends Controller
             'phone' => 'nullable|string|max:20',
             'role' => 'required|string|exists:roles,name',
             'is_active' => 'boolean',
+            'allowed_sector_ids' => 'array',
+            'allowed_sector_ids.*' => 'integer|exists:sectors,id',
+            'allowed_folder_ids' => 'array',
+            'allowed_folder_ids.*' => 'integer|exists:document_folders,id',
         ]);
 
         $user = User::create([
-            ...$validated,
+            ...collect($validated)->except(['allowed_sector_ids', 'allowed_folder_ids', 'role'])->toArray(),
             'password' => Hash::make($validated['password']),
         ]);
         $user->assignRole($validated['role']);
+        $user->allowedSectors()->sync($validated['allowed_sector_ids'] ?? []);
+        $user->allowedFolders()->sync($validated['allowed_folder_ids'] ?? []);
 
         AuditLog::record('create_user', $user, [], $user->toArray(), "إنشاء مستخدم: {$user->name}");
 
@@ -71,8 +81,11 @@ class UserController extends Controller
     public function edit(User $user)
     {
         return Inertia::render('Users/Form', [
-            'user' => $user->load('roles'),
+            'user' => $user->load(['roles', 'allowedSectors:id', 'allowedFolders:id']),
             'sectors' => Sector::where('is_active', true)->get(['id', 'name']),
+            'folders' => DocumentFolder::with('sector:id,name')
+                ->where('is_active', true)
+                ->get(['id', 'sector_id', 'parent_id', 'name']),
             'roles' => Role::all(['id', 'name']),
         ]);
     }
@@ -90,17 +103,23 @@ class UserController extends Controller
             'phone' => 'nullable|string|max:20',
             'role' => 'required|string|exists:roles,name',
             'is_active' => 'boolean',
+            'allowed_sector_ids' => 'array',
+            'allowed_sector_ids.*' => 'integer|exists:sectors,id',
+            'allowed_folder_ids' => 'array',
+            'allowed_folder_ids.*' => 'integer|exists:document_folders,id',
         ]);
 
         $old = $user->toArray();
 
-        $updateData = collect($validated)->except(['password', 'role'])->toArray();
+        $updateData = collect($validated)->except(['password', 'role', 'allowed_sector_ids', 'allowed_folder_ids'])->toArray();
         if (!empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
         }
 
         $user->update($updateData);
         $user->syncRoles([$validated['role']]);
+        $user->allowedSectors()->sync($validated['allowed_sector_ids'] ?? []);
+        $user->allowedFolders()->sync($validated['allowed_folder_ids'] ?? []);
 
         AuditLog::record('update_user', $user, $old, $user->fresh()->toArray(), "تعديل مستخدم: {$user->name}");
 

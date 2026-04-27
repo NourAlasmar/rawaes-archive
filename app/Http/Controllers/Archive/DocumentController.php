@@ -61,18 +61,35 @@ class DocumentController extends Controller
     public function create(): Response
     {
         $this->authorize('create', ArchiveDocument::class);
+
+        $user = auth()->user();
+        $allowedSectorIds = $user->accessibleSectorIds(); // empty = all
+        $allowedFolderIds = $user->accessibleFolderIds(); // empty = no specific restriction
+
+        $sectorsQuery = Sector::where('is_active', true);
+        if (!empty($allowedSectorIds)) {
+            $sectorsQuery->whereIn('id', $allowedSectorIds);
+        }
+
+        $foldersQuery = DocumentFolder::where('is_active', true);
+        if (!empty($allowedSectorIds)) {
+            $foldersQuery->whereIn('sector_id', $allowedSectorIds);
+        }
+        if (!empty($allowedFolderIds)) {
+            $foldersQuery->whereIn('id', $allowedFolderIds);
+        }
+
         return Inertia::render('Archive/Documents/Create', [
-            'sectors' => Sector::where('is_active', true)->get(),
-            'folders' => DocumentFolder::with('children')
-                ->whereNull('parent_id')
-                ->where('is_active', true)
-                ->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']),
+            'sectors' => $sectorsQuery->get(),
+            'folders' => $foldersQuery->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']),
             'documentTypes' => DocumentType::where('is_active', true)->get(),
         ]);
     }
 
     public function store(Request $request)
     {
+        $this->authorize('create', ArchiveDocument::class);
+
         $validated = $request->validate([
             'files' => 'required|array|min:1',
             'files.*' => 'required|file|max:51200|mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx,ppt,pptx,txt',
@@ -85,6 +102,18 @@ class DocumentController extends Controller
             'notes' => 'nullable|string',
             'is_confidential' => 'nullable|boolean',
         ]);
+
+        // Enforce sector & folder access
+        $user = auth()->user();
+        $allowedSectorIds = $user->accessibleSectorIds();
+        $allowedFolderIds = $user->accessibleFolderIds();
+
+        if (!empty($allowedSectorIds) && !in_array($validated['sector_id'], $allowedSectorIds)) {
+            abort(403, 'لا تملك صلاحية الرفع لهذا القطاع');
+        }
+        if (!empty($allowedFolderIds) && !in_array($validated['folder_id'], $allowedFolderIds)) {
+            abort(403, 'لا تملك صلاحية الرفع لهذا المجلد');
+        }
 
         $documents = [];
 

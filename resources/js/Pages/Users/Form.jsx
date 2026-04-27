@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Save, ArrowLeft, User as UserIcon, Shield } from 'lucide-react';
+import { Save, ArrowLeft, User as UserIcon, Shield, Archive, FolderOpen } from 'lucide-react';
 
 const roleLabels = {
     'super-admin': 'مدير عام (صلاحيات كاملة)',
@@ -9,7 +9,7 @@ const roleLabels = {
     'auditor': 'مدقق',
 };
 
-export default function UserForm({ user, sectors, roles }) {
+export default function UserForm({ user, sectors, folders = [], roles }) {
     const isEdit = Boolean(user);
 
     const { data, setData, post, put, processing, errors } = useForm({
@@ -24,7 +24,31 @@ export default function UserForm({ user, sectors, roles }) {
         phone: user?.phone ?? '',
         role: user?.roles?.[0]?.name ?? 'employee',
         is_active: user?.is_active ?? true,
+        allowed_sector_ids: user?.allowed_sectors?.map(s => s.id) ?? [],
+        allowed_folder_ids: user?.allowed_folders?.map(f => f.id) ?? [],
     });
+
+    const toggleSector = (id) => {
+        const next = data.allowed_sector_ids.includes(id)
+            ? data.allowed_sector_ids.filter(x => x !== id)
+            : [...data.allowed_sector_ids, id];
+        setData('allowed_sector_ids', next);
+    };
+
+    const toggleFolder = (id) => {
+        const next = data.allowed_folder_ids.includes(id)
+            ? data.allowed_folder_ids.filter(x => x !== id)
+            : [...data.allowed_folder_ids, id];
+        setData('allowed_folder_ids', next);
+    };
+
+    const isAdmin = ['super-admin', 'archive-manager', 'auditor'].includes(data.role);
+
+    // Group folders by sector for display
+    const foldersBySector = sectors.map(s => ({
+        ...s,
+        folders: folders.filter(f => f.sector_id === s.id),
+    })).filter(s => s.folders.length > 0);
 
     const submit = (e) => {
         e.preventDefault();
@@ -165,6 +189,67 @@ export default function UserForm({ user, sectors, roles }) {
                             </div>
                         </div>
                     </div>
+
+                    {!isAdmin && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2.5 bg-blue-50 rounded-lg">
+                                    <Archive size={22} className="text-blue-500" />
+                                </div>
+                                <div>
+                                    <h2 className="font-bold text-gray-800">القطاعات المسموح بها</h2>
+                                    <p className="text-xs text-gray-500">حدد القطاعات التي يستطيع المستخدم الوصول إليها ورفع المستندات فيها</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {sectors.map(s => (
+                                    <label key={s.id} className="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.allowed_sector_ids.includes(s.id)}
+                                            onChange={() => toggleSector(s.id)}
+                                            className="w-4 h-4 accent-amber-500"
+                                        />
+                                        <span className="text-sm text-gray-700">{s.name}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {!isAdmin && foldersBySector.length > 0 && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2.5 bg-green-50 rounded-lg">
+                                    <FolderOpen size={22} className="text-green-500" />
+                                </div>
+                                <div>
+                                    <h2 className="font-bold text-gray-800">المجلدات المسموح بها</h2>
+                                    <p className="text-xs text-gray-500">حدد المجلدات المحددة (اختياري — لو تركته فارغاً يقدر يرفع في أي مجلد ضمن قطاعاته)</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {foldersBySector.map(s => (
+                                    <div key={s.id} className="border rounded-lg p-3 bg-gray-50">
+                                        <p className="text-sm font-semibold text-gray-700 mb-2">{s.name}</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                                            {s.folders.map(f => (
+                                                <label key={f.id} className="flex items-center gap-2 text-xs cursor-pointer p-1.5 hover:bg-white rounded">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={data.allowed_folder_ids.includes(f.id)}
+                                                        onChange={() => toggleFolder(f.id)}
+                                                        className="w-3.5 h-3.5 accent-amber-500"
+                                                    />
+                                                    <span className="text-gray-700">{f.name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <h2 className="font-bold text-gray-800 mb-4">
