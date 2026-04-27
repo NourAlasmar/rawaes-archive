@@ -80,26 +80,48 @@ class DashboardController extends Controller
             ? AuditLog::with('user:id,name')->latest('created_at')->take(8)->get()
             : collect();
 
+        // Employee-specific stats
+        $myUploads = ArchiveDocument::where('uploaded_by', $user->id)->count();
+        $myUploadsThisMonth = ArchiveDocument::where('uploaded_by', $user->id)
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->count();
+
+        // Accessible sectors info for the user
+        $accessibleSectors = $hasFullAccess
+            ? Sector::where('is_active', true)->withCount('documents')->get()
+            : $user->allowedSectors()->withCount('documents')->get()
+                ->merge($user->sector ? collect([$user->sector->loadCount('documents')]) : collect())
+                ->unique('id')
+                ->values();
+
         return Inertia::render('Dashboard', [
             'stats' => [
-                'total'         => $totalDocs,
-                'expiring_soon' => $expiringSoon,
-                'expired'       => $expired,
-                'confidential'  => $confidential,
-                'total_size'    => $totalSize,
-                'sectors'       => $hasFullAccess ? Sector::count() : 1,
-                'folders'       => DocumentFolder::when($sectorId, fn($q) => $q->where('sector_id', $sectorId))->count(),
-                'types'         => DocumentType::count(),
-                'users'         => $hasFullAccess ? User::count() : null,
+                'total'              => $totalDocs,
+                'expiring_soon'      => $expiringSoon,
+                'expired'            => $expired,
+                'confidential'       => $confidential,
+                'sectors'            => $hasFullAccess ? Sector::count() : $accessibleSectors->count(),
+                'folders'            => DocumentFolder::when($sectorId, fn($q) => $q->where('sector_id', $sectorId))->count(),
+                'types'              => DocumentType::count(),
+                'users'              => $hasFullAccess ? User::count() : null,
+                'my_uploads'         => $myUploads,
+                'my_uploads_month'   => $myUploadsThisMonth,
             ],
-            'bySector'        => $bySector,
-            'byType'          => $byType,
-            'trend'           => $trend,
-            'recent'          => $recent,
-            'expiringList'    => $expiringList,
-            'recentActivity'  => $recentActivity,
-            'isScoped'        => (bool) $sectorId,
-            'sectorName'      => $sectorId ? $user->sector?->name : null,
+            'bySector'         => $bySector,
+            'byType'           => $byType,
+            'trend'            => $trend,
+            'recent'           => $recent,
+            'expiringList'     => $expiringList,
+            'recentActivity'   => $recentActivity,
+            'isScoped'         => !$hasFullAccess,
+            'sectorName'       => $sectorId ? $user->sector?->name : null,
+            'accessibleSectors' => $accessibleSectors,
+            'currentUser'      => [
+                'name'  => $user->name,
+                'job_title' => $user->job_title,
+                'sector_name' => $user->sector?->name,
+                'department' => $user->department,
+            ],
         ]);
     }
 }
