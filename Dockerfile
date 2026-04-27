@@ -113,8 +113,15 @@ COPY --from=node-builder --chown=www-data:www-data /app/public/build /var/www/ht
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Create log directories
+# Create log + nginx working directories with proper permissions
 RUN mkdir -p /var/log/supervisor /var/log/nginx \
+    /var/lib/nginx/tmp/client_body \
+    /var/lib/nginx/tmp/proxy \
+    /var/lib/nginx/tmp/fastcgi \
+    /var/lib/nginx/tmp/uwsgi \
+    /var/lib/nginx/tmp/scgi \
+    && chown -R www-data:www-data /var/lib/nginx /var/log/nginx \
+    && chmod -R 755 /var/lib/nginx \
     && touch /var/log/supervisor/supervisord.log
 
 EXPOSE 80
