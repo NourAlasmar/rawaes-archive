@@ -71,10 +71,19 @@ const actionIcons = {
     delete: { icon: Trash2, text: 'text-red-500', bg: 'bg-red-50' },
 };
 
-export default function Dashboard({ stats, bySector, byType, trend, recent, expiringList, recentActivity }) {
+export default function Dashboard({ stats, bySector, byType, trend, recent, expiringList, recentActivity, isScoped, sectorName }) {
     return (
         <>
             <Head title="لوحة البيانات" />
+
+            {isScoped && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 flex items-center gap-2 text-sm">
+                    <Archive size={16} className="text-amber-600 shrink-0" />
+                    <span className="text-amber-800">
+                        أنت تعرض بيانات قطاع <strong>{sectorName}</strong> فقط
+                    </span>
+                </div>
+            )}
 
             {/* Top Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -113,9 +122,9 @@ export default function Dashboard({ stats, bySector, byType, trend, recent, expi
                     { icon: Archive, label: 'قطاعات', value: stats.sectors, color: 'text-amber-600' },
                     { icon: FolderOpen, label: 'مجلدات', value: stats.folders, color: 'text-blue-600' },
                     { icon: Settings, label: 'أنواع', value: stats.types, color: 'text-green-600' },
-                    { icon: Users, label: 'مستخدمون', value: stats.users, color: 'text-purple-600' },
+                    stats.users !== null && { icon: Users, label: 'مستخدمون', value: stats.users, color: 'text-purple-600' },
                     { icon: Lock, label: 'سرية', value: stats.confidential, color: 'text-red-600' },
-                ].map((s, i) => {
+                ].filter(Boolean).map((s, i) => {
                     const Icon = s.icon;
                     return (
                         <div key={i} className="bg-white rounded-lg border border-gray-100 p-3 flex items-center gap-3">
@@ -130,14 +139,16 @@ export default function Dashboard({ stats, bySector, byType, trend, recent, expi
             </div>
 
             {/* Charts row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-800">المستندات حسب القطاع</h3>
-                        <Archive size={18} className="text-amber-500" />
+            <div className={`grid grid-cols-1 ${bySector.length > 0 ? 'lg:grid-cols-2' : ''} gap-5 mb-6`}>
+                {bySector.length > 0 && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-gray-800">المستندات حسب القطاع</h3>
+                            <Archive size={18} className="text-amber-500" />
+                        </div>
+                        <BarChart data={bySector} color="bg-amber-500" />
                     </div>
-                    <BarChart data={bySector} color="bg-amber-500" />
-                </div>
+                )}
 
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
                     <div className="flex items-center justify-between mb-4">
@@ -209,7 +220,8 @@ export default function Dashboard({ stats, bySector, byType, trend, recent, expi
                 </div>
             </div>
 
-            {/* Activity log preview */}
+            {/* Activity log preview - admins only */}
+            {recentActivity.length > 0 && (
             <div className="mt-5 bg-white rounded-xl border border-gray-200 p-5">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -243,6 +255,7 @@ export default function Dashboard({ stats, bySector, byType, trend, recent, expi
                     )}
                 </div>
             </div>
+            )}
         </>
     );
 }

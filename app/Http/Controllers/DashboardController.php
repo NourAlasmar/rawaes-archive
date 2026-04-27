@@ -15,75 +15,91 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $totalDocs = ArchiveDocument::count();
-        $expiringSoon = ArchiveDocument::expiringSoon(30)->count();
-        $expired = ArchiveDocument::expired()->count();
-        $confidential = ArchiveDocument::where('is_confidential', true)->count();
+        $user = auth()->user();
 
-        // Total file size
-        $totalSize = (int) ArchiveDocument::sum('file_size');
+        // Determine if user has full access (admin/manager/auditor) or sector-scoped (employee)
+        $hasFullAccess = $user->hasAnyRole(['super-admin', 'archive-manager', 'auditor']);
+        $sectorId = (!$hasFullAccess && $user->sector_id) ? $user->sector_id : null;
 
-        // By sector
-        $bySector = ArchiveDocument::select('sector_id', DB::raw('count(*) as count'))
-            ->with('sector:id,name')
-            ->groupBy('sector_id')
-            ->get()
-            ->map(fn($row) => [
-                'name' => $row->sector?->name ?? 'غير محدد',
-                'count' => $row->count,
-            ]);
+        // Base query with sector scoping + confidential filtering
+        $base = fn() => ArchiveDocument::query()
+            ->when($sectorId, fn($q) => $q->where('sector_id', $sectorId))
+            ->when(
+                !$user->hasAnyRole(['super-admin', 'archive-manager']),
+                fn($q) => $q->where(function ($sub) use ($user) {
+                    $sub->where('is_confidential', false)
+                        ->orWhere('uploaded_by', $user->id);
+                })
+            );
 
-        // By document type
-        $byType = ArchiveDocument::select('document_type_id', DB::raw('count(*) as count'))
+        $totalDocs    = $base()->count();
+        $expiringSoon = $base()->expiringSoon(30)->count();
+        $expired      = $base()->expired()->count();
+        $confidential = $base()->where('is_confidential', true)->count();
+        $totalSize    = (int) $base()->sum('file_size');
+
+        // By sector (only show all sectors for users with full access)
+        $bySector = $hasFullAccess
+            ? ArchiveDocument::select('sector_id', DB::raw('count(*) as count'))
+                ->with('sector:id,name')
+                ->groupBy('sector_id')
+                ->get()
+                ->map(fn($r) => ['name' => $r->sector?->name ?? 'غير محدد', 'count' => $r->count])
+            : collect();
+
+        // By document type (scoped)
+        $byType = $base()
+            ->select('document_type_id', DB::raw('count(*) as count'))
             ->with('documentType:id,name')
             ->groupBy('document_type_id')
             ->get()
-            ->map(fn($row) => [
-                'name' => $row->documentType?->name ?? 'غير محدد',
-                'count' => $row->count,
-            ]);
+            ->map(fn($r) => ['name' => $r->documentType?->name ?? 'غير محدد', 'count' => $r->count]);
 
-        // Last 30 days trend
-        $trend = ArchiveDocument::select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
+        $trend = $base()
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
             ->where('created_at', '>=', now()->subDays(30))
             ->groupBy('date')
             ->orderBy('date')
             ->get();
 
-        $recent = ArchiveDocument::with(['sector:id,name', 'documentType:id,name', 'uploader:id,name'])
+        $recent = $base()
+            ->with(['sector:id,name', 'documentType:id,name', 'uploader:id,name'])
             ->latest()
             ->take(6)
             ->get();
 
-        $expiringList = ArchiveDocument::expiringSoon(30)
+        $expiringList = $base()
+            ->expiringSoon(30)
             ->with(['sector:id,name', 'documentType:id,name'])
             ->orderBy('expiry_date')
             ->take(5)
             ->get();
 
-        $recentActivity = AuditLog::with('user:id,name')
-            ->latest('created_at')
-            ->take(8)
-            ->get();
+        // Activity log: full access only
+        $recentActivity = $hasFullAccess
+            ? AuditLog::with('user:id,name')->latest('created_at')->take(8)->get()
+            : collect();
 
         return Inertia::render('Dashboard', [
             'stats' => [
-                'total' => $totalDocs,
+                'total'         => $totalDocs,
                 'expiring_soon' => $expiringSoon,
-                'expired' => $expired,
-                'confidential' => $confidential,
-                'total_size' => $totalSize,
-                'sectors' => Sector::count(),
-                'folders' => DocumentFolder::count(),
-                'types' => DocumentType::count(),
-                'users' => User::count(),
+                'expired'       => $expired,
+                'confidential'  => $confidential,
+                'total_size'    => $totalSize,
+                'sectors'       => $hasFullAccess ? Sector::count() : 1,
+                'folders'       => DocumentFolder::when($sectorId, fn($q) => $q->where('sector_id', $sectorId))->count(),
+                'types'         => DocumentType::count(),
+                'users'         => $hasFullAccess ? User::count() : null,
             ],
-            'bySector' => $bySector,
-            'byType' => $byType,
-            'trend' => $trend,
-            'recent' => $recent,
-            'expiringList' => $expiringList,
-            'recentActivity' => $recentActivity,
+            'bySector'        => $bySector,
+            'byType'          => $byType,
+            'trend'           => $trend,
+            'recent'          => $recent,
+            'expiringList'    => $expiringList,
+            'recentActivity'  => $recentActivity,
+            'isScoped'        => (bool) $sectorId,
+            'sectorName'      => $sectorId ? $user->sector?->name : null,
         ]);
     }
 }
