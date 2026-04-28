@@ -5,11 +5,26 @@ cd /var/www/html
 
 echo "🚀 Starting روائس Archive System..."
 
-# Create .env file if missing (Coolify passes env vars directly, but Laravel needs the file)
-if [ ! -f .env ]; then
-    echo "📝 Creating .env file..."
-    touch .env
-fi
+# Build .env from environment variables on every boot
+# (this guarantees Laravel sees the latest values even after config:cache)
+echo "📝 Writing .env from environment..."
+ENV_VARS="APP_NAME APP_ENV APP_KEY APP_DEBUG APP_URL APP_TIMEZONE APP_LOCALE \
+LOG_CHANNEL LOG_LEVEL \
+DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD \
+REDIS_HOST REDIS_PORT REDIS_PASSWORD REDIS_CLIENT \
+CACHE_STORE SESSION_DRIVER SESSION_LIFETIME QUEUE_CONNECTION \
+FILESYSTEM_DISK \
+OCR_SPACE_API_KEY \
+SCAN_API_TOKEN \
+BCRYPT_ROUNDS"
+
+> .env
+for var in $ENV_VARS; do
+    val=$(printenv "$var" || true)
+    if [ -n "$val" ]; then
+        echo "$var=$val" >> .env
+    fi
+done
 
 # Wait for database
 if [ -n "$DB_HOST" ]; then
