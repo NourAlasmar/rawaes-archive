@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\PendingScan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -42,6 +43,19 @@ class ScanUploadController extends Controller
             'source'          => 'scanner',
             'source_device'   => $validated['device'] ?? 'unknown',
             'status'          => 'new',
+        ]);
+
+        // Log the scan reception (no logged-in user since it's API)
+        AuditLog::create([
+            'user_id'        => null,
+            'user_name'      => 'Scanner [' . ($validated['device'] ?? 'unknown') . ']',
+            'ip_address'     => request()->ip(),
+            'user_agent'     => 'Scanner Watcher',
+            'action'         => 'scan_received',
+            'auditable_type' => PendingScan::class,
+            'auditable_id'   => $scan->id,
+            'description'    => "وصول مسح ضوئي جديد: {$originalName}",
+            'created_at'     => now(),
         ]);
 
         return response()->json([

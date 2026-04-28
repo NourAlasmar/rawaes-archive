@@ -97,6 +97,7 @@ class ScanInboxController extends Controller
         ]);
 
         AuditLog::record('upload', $doc, [], $doc->toArray(), "أرشفة من السكانر: {$doc->title}");
+        AuditLog::record('scan_assigned', $pendingScan, [], ['document_id' => $doc->id, 'title' => $doc->title], "تصنيف وحفظ مسح ضوئي: {$doc->title}");
         ProcessDocumentOcr::dispatch($doc->id);
 
         $pendingScan->update([
@@ -110,6 +111,7 @@ class ScanInboxController extends Controller
 
     public function destroy(PendingScan $pendingScan)
     {
+        AuditLog::record('scan_deleted', $pendingScan, $pendingScan->toArray(), [], "حذف مسح ضوئي: {$pendingScan->original_name}");
         Storage::disk('local')->delete($pendingScan->file_path);
         $pendingScan->update(['status' => 'rejected']);
         $pendingScan->delete();

@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle, Archive, FolderPlus, FolderOpen, Settings, Plus } from 'lucide-react';
+import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle, Archive, FolderPlus, FolderOpen, Settings, Plus, ScanLine, FileCheck } from 'lucide-react';
 import { useState } from 'react';
 
 const actionConfig = {
@@ -24,6 +24,9 @@ const actionConfig = {
     create_type:    { label: 'إنشاء نوع مستند',  icon: Settings,    color: 'bg-green-100 text-green-700' },
     update_type:    { label: 'تعديل نوع مستند',  icon: Settings,    color: 'bg-green-100 text-green-700' },
     delete_type:    { label: 'حذف نوع مستند',    icon: Settings,    color: 'bg-red-100 text-red-700' },
+    scan_received:  { label: 'مسح ضوئي جديد',    icon: ScanLine,    color: 'bg-cyan-100 text-cyan-700' },
+    scan_assigned:  { label: 'تصنيف مسح ضوئي',   icon: FileCheck,   color: 'bg-emerald-100 text-emerald-700' },
+    scan_deleted:   { label: 'حذف مسح ضوئي',     icon: ScanLine,    color: 'bg-red-100 text-red-700' },
 };
 
 export default function AuditLogIndex({ logs, filters }) {
