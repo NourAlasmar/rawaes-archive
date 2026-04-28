@@ -45,6 +45,9 @@ services:
       # OCR
       OCR_SPACE_API_KEY: ${OCR_SPACE_API_KEY}
 
+      # Scanner watcher
+      SCAN_API_TOKEN: ${SCAN_API_TOKEN}
+
       BCRYPT_ROUNDS: 12
     volumes:
       - app-storage:/var/www/html/storage/app
