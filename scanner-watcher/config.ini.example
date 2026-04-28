@@ -1,0 +1,17 @@
+[main]
+; المجلد اللي السكانر يحفظ فيه الملفات
+; مثال على Windows: C:\Scans
+; مثال على Mac: /Users/Shared/Scans
+watch_folder = C:\Scans
+
+; رابط النظام
+api_url = http://45.63.117.248
+
+; توكن الـ API (احصل عليه من admin النظام)
+api_token = REPLACE_WITH_YOUR_TOKEN
+
+; اسم الجهاز/المحطة (يظهر في النظام)
+device_name = Office-PC-1
+
+; مجلد فرعي للملفات المرفوعة (داخل watch_folder)
+processed_folder = processed

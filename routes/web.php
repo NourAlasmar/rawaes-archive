@@ -52,6 +52,13 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
 
+    // Scan Inbox
+    Route::get('/scans', [\App\Http\Controllers\Archive\ScanInboxController::class, 'index'])->name('scans.index');
+    Route::get('/scans/{pendingScan}', [\App\Http\Controllers\Archive\ScanInboxController::class, 'show'])->name('scans.show');
+    Route::get('/scans/{pendingScan}/preview', [\App\Http\Controllers\Archive\ScanInboxController::class, 'preview'])->name('scans.preview');
+    Route::post('/scans/{pendingScan}/assign', [\App\Http\Controllers\Archive\ScanInboxController::class, 'assign'])->name('scans.assign');
+    Route::delete('/scans/{pendingScan}', [\App\Http\Controllers\Archive\ScanInboxController::class, 'destroy'])->name('scans.destroy');
+
     Route::get('/folders', [FolderController::class, 'index'])->name('folders.index');
     Route::post('/folders', [FolderController::class, 'store'])->name('folders.store');
     Route::put('/folders/{folder}', [FolderController::class, 'update'])->name('folders.update');

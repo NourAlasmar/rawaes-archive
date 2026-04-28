@@ -26,6 +26,10 @@ return [
         'api_key' => env('OCR_SPACE_API_KEY', 'helloworld'),
     ],
 
+    'scan' => [
+        'token' => env('SCAN_API_TOKEN'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

@@ -3,12 +3,13 @@ import { Link, usePage, router } from '@inertiajs/react';
 import {
     FolderOpen, FileText, Settings, Users, BarChart3,
     ChevronLeft, ChevronRight, Bell, Search, LogOut,
-    LayoutDashboard, Shield, Archive, Menu, X
+    LayoutDashboard, Shield, Archive, Menu, X, ScanLine
 } from 'lucide-react';
 
 const allNavItems = [
     { label: 'لوحة البيانات', href: '/dashboard', icon: LayoutDashboard, match: '/dashboard' },
     { label: 'المستندات', href: '/archive/documents', icon: FileText, match: '/archive/documents' },
+    { label: 'صندوق المسح', href: '/archive/scans', icon: ScanLine, match: '/archive/scans', badge: 'pendingScansCount' },
     { label: 'المجلدات', href: '/archive/folders', icon: FolderOpen, match: '/archive/folders', requires: 'folders.manage' },
     { label: 'القطاعات', href: '/archive/sectors', icon: Archive, match: '/archive/sectors', requires: 'sectors.manage' },
     { label: 'أنواع المستندات', href: '/archive/document-types', icon: Settings, match: '/archive/document-types', requires: 'sectors.manage' },
@@ -20,9 +21,10 @@ const allNavItems = [
 ];
 
 export default function ArchiveLayout({ children, title = '' }) {
-    const { auth, notifications, flash } = usePage().props;
+    const { auth, notifications, flash, pendingScansCount } = usePage().props;
     const can = auth?.can ?? {};
     const navItems = allNavItems.filter(item => !item.requires || can[item.requires]);
+    const badges = { pendingScansCount: pendingScansCount ?? 0 };
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
@@ -95,12 +97,13 @@ export default function ArchiveLayout({ children, title = '' }) {
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentPath.startsWith(item.match);
+                        const badgeCount = item.badge ? badges[item.badge] : 0;
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
                                 className={`
-                                    flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1
+                                    relative flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1
                                     transition-colors duration-150
                                     ${isActive
                                         ? 'bg-amber-500 text-white'
@@ -110,8 +113,24 @@ export default function ArchiveLayout({ children, title = '' }) {
                                 `}
                                 title={!sidebarOpen ? item.label : ''}
                             >
-                                <Icon size={18} className="shrink-0" />
-                                {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+                                <div className="relative shrink-0">
+                                    <Icon size={18} />
+                                    {!sidebarOpen && badgeCount > 0 && (
+                                        <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                                            {badgeCount > 9 ? '9+' : badgeCount}
+                                        </span>
+                                    )}
+                                </div>
+                                {sidebarOpen && (
+                                    <>
+                                        <span className="text-sm font-medium flex-1">{item.label}</span>
+                                        {badgeCount > 0 && (
+                                            <span className="min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                                {badgeCount > 99 ? '99+' : badgeCount}
+                                            </span>
+                                        )}
+                                    </>
+                                )}
                             </Link>
                         );
                     })}
