@@ -46,7 +46,7 @@ export default function AssignScan({ scan, sectors, folders, documentTypes }) {
 
             <div className="flex items-center gap-2 mb-4 text-sm">
                 <Link href="/archive/scans" className="text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                    <ArrowLeft size={14} /> صندوق المسح
+                    <ArrowLeft size={14} /> المسح الضوئي
                 </Link>
                 <span className="text-gray-300">/</span>
                 <span className="text-gray-800 font-medium">تصنيف</span>

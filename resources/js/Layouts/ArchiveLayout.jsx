@@ -9,7 +9,6 @@ import {
 const allNavItems = [
     { label: 'لوحة البيانات', href: '/dashboard', icon: LayoutDashboard, match: '/dashboard' },
     { label: 'المستندات', href: '/archive/documents', icon: FileText, match: '/archive/documents' },
-    { label: 'صندوق المسح', href: '/archive/scans', icon: ScanLine, match: '/archive/scans', badge: 'pendingScansCount' },
     { label: 'المجلدات', href: '/archive/folders', icon: FolderOpen, match: '/archive/folders', requires: 'folders.manage' },
     { label: 'القطاعات', href: '/archive/sectors', icon: Archive, match: '/archive/sectors', requires: 'sectors.manage' },
     { label: 'أنواع المستندات', href: '/archive/document-types', icon: Settings, match: '/archive/document-types', requires: 'sectors.manage' },
@@ -17,6 +16,7 @@ const allNavItems = [
     { label: 'المستخدمون', href: '/users', icon: Users, match: '/users', requires: 'users.manage' },
     { label: 'الأدوار والصلاحيات', href: '/roles', icon: Shield, match: '/roles', requires: 'users.manage' },
     { label: 'التقارير', href: '/reports', icon: BarChart3, match: '/reports', requires: 'reports.view' },
+    { label: 'المسح الضوئي', href: '/archive/scans', icon: ScanLine, match: '/archive/scans', badge: 'pendingScansCount' },
     { label: 'الإشعارات', href: '/notifications', icon: Bell, match: '/notifications' },
 ];
 

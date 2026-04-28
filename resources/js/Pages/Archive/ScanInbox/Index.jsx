@@ -11,7 +11,7 @@ export default function ScanInboxIndex({ scans, count }) {
 
     return (
         <>
-            <Head title="صندوق المسح" />
+            <Head title="المسح الضوئي" />
 
             {/* Header banner */}
             <div className="bg-gradient-to-l from-blue-50 via-amber-50 to-blue-50 border border-amber-200 rounded-2xl p-5 mb-5">
@@ -20,7 +20,7 @@ export default function ScanInboxIndex({ scans, count }) {
                         <ScanLine size={22} className="text-white" />
                     </div>
                     <div className="flex-1">
-                        <h2 className="font-bold text-gray-800 text-lg">صندوق المسح الضوئي</h2>
+                        <h2 className="font-bold text-gray-800 text-lg">المسح الضوئي الضوئي</h2>
                         <p className="text-sm text-gray-600">المستندات التي وصلت من جهاز الماسح وتنتظر التصنيف</p>
                     </div>
                     {count > 0 && (
@@ -106,4 +106,4 @@ export default function ScanInboxIndex({ scans, count }) {
     );
 }
 
-ScanInboxIndex.layout = page => <ArchiveLayout title="صندوق المسح" children={page} />;
+ScanInboxIndex.layout = page => <ArchiveLayout title="المسح الضوئي" children={page} />;
