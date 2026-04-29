@@ -3,7 +3,31 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import { Save, ArrowLeft, ScanLine, FileText, Calendar, Monitor } from 'lucide-react';
 
 function FolderSelect({ folders, value, onChange, sectorId }) {
-    const filtered = sectorId ? folders.filter(f => String(f.sector_id) === String(sectorId)) : [];
+    // Build a hierarchical tree from flat list using parent_id
+    const filtered = sectorId
+        ? folders.filter(f => String(f.sector_id) === String(sectorId))
+        : [];
+
+    const childrenOf = (parentId) =>
+        filtered.filter(f => (f.parent_id ?? null) === (parentId ?? null));
+
+    const renderTree = (parentId = null, depth = 0) => {
+        const nodes = childrenOf(parentId);
+        const result = [];
+        for (const f of nodes) {
+            result.push(
+                <option key={f.id} value={f.id}>
+                    {'— '.repeat(depth) + f.name}
+                </option>
+            );
+            const sub = renderTree(f.id, depth + 1);
+            result.push(...sub);
+        }
+        return result;
+    };
+
+    const options = sectorId ? renderTree(null, 0) : [];
+
     return (
         <select
             value={value}
@@ -12,8 +36,14 @@ function FolderSelect({ folders, value, onChange, sectorId }) {
             required
             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white disabled:bg-gray-50 disabled:text-gray-400"
         >
-            <option value="">{!sectorId ? 'اختر القطاع أولاً' : filtered.length === 0 ? 'لا توجد مجلدات لهذا القطاع' : 'اختر المجلد'}</option>
-            {filtered.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            <option value="">
+                {!sectorId
+                    ? 'اختر القطاع أولاً'
+                    : options.length === 0
+                        ? 'لا توجد مجلدات لهذا القطاع'
+                        : 'اختر المجلد'}
+            </option>
+            {options}
         </select>
     );
 }

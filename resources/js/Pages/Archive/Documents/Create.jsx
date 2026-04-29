@@ -17,17 +17,26 @@ function formatBytes(bytes) {
 }
 
 function FolderSelect({ folders, value, onChange, sectorId, disabled }) {
-    const renderOptions = (items, depth = 0) =>
-        items.map(f => [
-            <option key={f.id} value={f.id}>
-                {'— '.repeat(depth) + f.name}
-            </option>,
-            ...(f.children?.length ? renderOptions(f.children, depth + 1) : [])
-        ]);
-
     const filtered = sectorId
         ? folders.filter(f => String(f.sector_id) === String(sectorId))
         : [];
+
+    // Build hierarchy from flat list using parent_id
+    const renderTree = (parentId = null, depth = 0) => {
+        const result = [];
+        const nodes = filtered.filter(f => (f.parent_id ?? null) === (parentId ?? null));
+        for (const f of nodes) {
+            result.push(
+                <option key={f.id} value={f.id}>
+                    {'— '.repeat(depth) + f.name}
+                </option>
+            );
+            result.push(...renderTree(f.id, depth + 1));
+        }
+        return result;
+    };
+
+    const options = sectorId ? renderTree() : [];
 
     return (
         <select
@@ -40,11 +49,11 @@ function FolderSelect({ folders, value, onChange, sectorId, disabled }) {
             <option value="">
                 {!sectorId
                     ? 'اختر القطاع أولاً'
-                    : filtered.length === 0
+                    : options.length === 0
                         ? 'لا توجد مجلدات لهذا القطاع'
                         : 'اختر المجلد'}
             </option>
-            {renderOptions(filtered)}
+            {options}
         </select>
     );
 }

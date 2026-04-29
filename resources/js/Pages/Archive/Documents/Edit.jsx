@@ -3,17 +3,23 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import { Save, ArrowLeft, FileText } from 'lucide-react';
 
 function FolderSelect({ folders, value, onChange, sectorId }) {
-    const renderOptions = (items, depth = 0) =>
-        items.map(f => [
-            <option key={f.id} value={f.id}>
-                {'— '.repeat(depth) + f.name}
-            </option>,
-            ...(f.children?.length ? renderOptions(f.children, depth + 1) : [])
-        ]);
-
     const filtered = sectorId
         ? folders.filter(f => String(f.sector_id) === String(sectorId))
         : folders;
+
+    const renderTree = (parentId = null, depth = 0) => {
+        const result = [];
+        const nodes = filtered.filter(f => (f.parent_id ?? null) === (parentId ?? null));
+        for (const f of nodes) {
+            result.push(
+                <option key={f.id} value={f.id}>
+                    {'— '.repeat(depth) + f.name}
+                </option>
+            );
+            result.push(...renderTree(f.id, depth + 1));
+        }
+        return result;
+    };
 
     return (
         <select
@@ -23,7 +29,7 @@ function FolderSelect({ folders, value, onChange, sectorId }) {
             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
         >
             <option value="">اختر المجلد</option>
-            {renderOptions(filtered)}
+            {renderTree()}
         </select>
     );
 }
