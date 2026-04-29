@@ -39,6 +39,7 @@ DEVICE_NAME = config.get('main', 'device_name', fallback='Scanner-PC')
 PROCESSED_FOLDER = config.get('main', 'processed_folder', fallback='processed')
 BRIDGE_ENABLED = config.getboolean('main', 'bridge_enabled', fallback=True)
 BRIDGE_PORT = config.getint('main', 'bridge_port', fallback=9999)
+PREFERRED_SCANNER = config.get('main', 'preferred_scanner', fallback='')
 ALLOWED_EXTS = {'.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 
 # ────────────── LOGGING ──────────────
@@ -183,7 +184,7 @@ def main():
     if BRIDGE_ENABLED:
         try:
             from scan_bridge import run_bridge
-            run_bridge(API_TOKEN, folder, port=BRIDGE_PORT)
+            run_bridge(API_TOKEN, folder, port=BRIDGE_PORT, preferred_scanner=PREFERRED_SCANNER)
         except Exception as e:
             log.warning(f'⚠️  Could not start scan bridge: {e}')
 

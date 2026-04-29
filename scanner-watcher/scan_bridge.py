@@ -15,10 +15,13 @@ from typing import Optional
 log = logging.getLogger('bridge')
 
 
-def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200) -> Optional[Path]:
+def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200, preferred_scanner: str = '') -> Optional[Path]:
     """
     Trigger a scan using Windows Image Acquisition (WIA).
     Returns the path of the saved scan, or None on failure.
+
+    Args:
+        preferred_scanner: substring of scanner name to match (case-insensitive)
 
     Requires: pywin32 (pip install pywin32)
     """
@@ -32,14 +35,29 @@ def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200) -> Opti
     pythoncom.CoInitialize()
 
     try:
-        # Connect to first available scanner
         manager = Dispatch('WIA.DeviceManager')
         devices = manager.DeviceInfos
         if devices.Count == 0:
             log.error('No WIA scanner found. Add the scanner in Windows Settings > Printers & scanners')
             return None
 
-        device_info = devices(1)  # WIA collections are 1-indexed
+        # Find scanner — match by name if specified
+        device_info = None
+        all_names = []
+        for i in range(1, devices.Count + 1):
+            d = devices(i)
+            name = d.Properties('Name').Value
+            all_names.append(name)
+            if preferred_scanner and preferred_scanner.lower() in name.lower():
+                device_info = d
+                break
+
+        if not device_info:
+            if preferred_scanner:
+                log.warning(f'⚠️ Scanner matching "{preferred_scanner}" not found. Available: {all_names}')
+                log.warning('Falling back to first scanner')
+            device_info = devices(1)
+
         log.info(f'🖨️ Using scanner: {device_info.Properties("Name").Value}')
         device = device_info.Connect()
 
@@ -114,7 +132,7 @@ def list_scanners() -> list:
             pass
 
 
-def create_app(scan_token: str, scans_folder: Path):
+def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = ''):
     """Create the Flask bridge application."""
     try:
         from flask import Flask, request, jsonify, send_file
@@ -177,7 +195,7 @@ def create_app(scan_token: str, scans_folder: Path):
         tmp_dir = Path(tempfile.gettempdir()) / 'rawaes_scans'
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        filepath = scan_via_wia(tmp_dir, color=color, dpi=dpi)
+        filepath = scan_via_wia(tmp_dir, color=color, dpi=dpi, preferred_scanner=preferred_scanner)
         if not filepath or not filepath.exists():
             return jsonify({'error': 'scan_failed', 'message': 'Could not scan. Make sure scanner is on and ready.'}), 500
 
@@ -206,9 +224,9 @@ def create_app(scan_token: str, scans_folder: Path):
     return app
 
 
-def run_bridge(scan_token: str, scans_folder: Path, port: int = 9999):
+def run_bridge(scan_token: str, scans_folder: Path, port: int = 9999, preferred_scanner: str = ''):
     """Start the bridge in a background thread."""
-    app = create_app(scan_token, scans_folder)
+    app = create_app(scan_token, scans_folder, preferred_scanner=preferred_scanner)
     if not app:
         log.warning('⚠️  Bridge disabled (Flask not installed)')
         return
