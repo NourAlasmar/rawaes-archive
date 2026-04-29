@@ -113,8 +113,8 @@ export default function AuditLogIndex({ logs, filters }) {
                                         <td className="px-4 py-3 text-sm text-gray-500 font-mono">{log.ip_address}</td>
                                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{log.description ?? '—'}</td>
                                         <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                                            <div>{new Date(log.created_at).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
-                                            <div className="text-xs text-gray-400">{new Date(log.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</div>
+                                            <div>{new Date(log.created_at).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                                            <div className="text-xs text-gray-400">{new Date(log.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
                                         </td>
                                     </tr>
                                 );

@@ -53,7 +53,7 @@ export default function NotificationsIndex({ notifications }) {
                                     <p className="text-xs text-gray-500 mt-0.5">{n.data.sector_name}</p>
                                 )}
                                 <p className="text-xs text-gray-400 mt-1">
-                                    {new Date(n.created_at).toLocaleString('ar-SA')}
+                                    {new Date(n.created_at).toLocaleString('en-GB')}
                                 </p>
                             </Link>
                             <button

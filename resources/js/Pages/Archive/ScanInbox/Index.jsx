@@ -20,7 +20,7 @@ export default function ScanInboxIndex({ scans, count }) {
                         <ScanLine size={22} className="text-white" />
                     </div>
                     <div className="flex-1">
-                        <h2 className="font-bold text-gray-800 text-lg">المسح الضوئي الضوئي</h2>
+                        <h2 className="font-bold text-gray-800 text-lg">صندوق المسح الضوئي</h2>
                         <p className="text-sm text-gray-600">المستندات التي وصلت من جهاز الماسح وتنتظر التصنيف</p>
                     </div>
                     {count > 0 && (
@@ -63,7 +63,7 @@ export default function ScanInboxIndex({ scans, count }) {
                                     <div className="flex items-center gap-3 text-xs text-gray-500 mb-3 flex-wrap">
                                         <span className="flex items-center gap-1">
                                             <Calendar size={11} />
-                                            {new Date(scan.created_at).toLocaleString('ar-SA', { dateStyle: 'short', timeStyle: 'short' })}
+                                            {new Date(scan.created_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
                                         </span>
                                         <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded">{scan.file_size_formatted}</span>
                                     </div>

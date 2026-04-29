@@ -266,8 +266,8 @@ export default function ShowDocument({ document }) {
                         <h3 className="font-semibold text-gray-800 mb-3">الرفع والتتبع</h3>
                         <div className="divide-y divide-gray-50">
                             <InfoRow icon={User} label="رفع بواسطة" value={document.uploader?.name} />
-                            <InfoRow icon={Calendar} label="تاريخ الرفع" value={new Date(document.created_at).toLocaleString('ar-SA')} />
-                            <InfoRow icon={Calendar} label="آخر تعديل" value={new Date(document.updated_at).toLocaleString('ar-SA')} />
+                            <InfoRow icon={Calendar} label="تاريخ الرفع" value={new Date(document.created_at).toLocaleString('en-GB')} />
+                            <InfoRow icon={Calendar} label="آخر تعديل" value={new Date(document.updated_at).toLocaleString('en-GB')} />
                         </div>
                     </div>
 

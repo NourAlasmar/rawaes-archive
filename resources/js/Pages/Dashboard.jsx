@@ -87,7 +87,7 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                             <FileText size={20} className="text-blue-600" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{stats.total.toLocaleString('ar-SA')}</p>
+                    <p className="text-3xl font-bold text-gray-800">{stats.total.toLocaleString('en-GB')}</p>
                     <p className="text-sm text-gray-500 mt-1">المستندات المتاحة لك</p>
                 </Link>
 
@@ -97,7 +97,7 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                             <Upload size={20} className="text-green-600" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{stats.my_uploads.toLocaleString('ar-SA')}</p>
+                    <p className="text-3xl font-bold text-gray-800">{stats.my_uploads.toLocaleString('en-GB')}</p>
                     <p className="text-sm text-gray-500 mt-1">رفعتها أنت</p>
                     {stats.my_uploads_month > 0 && (
                         <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
@@ -116,7 +116,7 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                             <Clock size={20} className="text-amber-600" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{stats.expiring_soon.toLocaleString('ar-SA')}</p>
+                    <p className="text-3xl font-bold text-gray-800">{stats.expiring_soon.toLocaleString('en-GB')}</p>
                     <p className="text-sm text-gray-500 mt-1">تنتهي قريباً</p>
                 </Link>
 
@@ -129,7 +129,7 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                             <AlertTriangle size={20} className="text-red-600" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-800">{stats.expired.toLocaleString('ar-SA')}</p>
+                    <p className="text-3xl font-bold text-gray-800">{stats.expired.toLocaleString('en-GB')}</p>
                     <p className="text-sm text-gray-500 mt-1">منتهية الصلاحية</p>
                 </Link>
             </div>
@@ -196,7 +196,7 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                                     </p>
                                 </div>
                                 <div className="text-left shrink-0">
-                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('ar-SA')}</p>
+                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('en-GB')}</p>
                                     {doc.uploader && (
                                         <p className="text-xs text-gray-400 mt-0.5">{doc.uploader.name}</p>
                                     )}
@@ -299,7 +299,7 @@ function StatCard({ icon: Icon, label, value, color, accent, href, sub }) {
                         <Icon size={20} className={color} />
                     </div>
                 </div>
-                <p className={`text-3xl font-bold ${color}`}>{value.toLocaleString('ar-SA')}</p>
+                <p className={`text-3xl font-bold ${color}`}>{value.toLocaleString('en-GB')}</p>
                 <p className="text-sm text-gray-500 mt-1">{label}</p>
                 {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
             </div>
@@ -328,7 +328,7 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                         </div>
                         <h2 className="text-2xl md:text-3xl font-bold mb-2">إدارة نظام روائس</h2>
                         <p className="text-white/70 text-sm mb-5">
-                            إجمالي <strong className="text-amber-300">{stats.total.toLocaleString('ar-SA')}</strong> مستند مؤرشف
+                            إجمالي <strong className="text-amber-300">{stats.total.toLocaleString('en-GB')}</strong> مستند مؤرشف
                         </p>
                         <div className="flex flex-wrap gap-2">
                             <Link href="/archive/documents/create" className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg">
@@ -466,7 +466,7 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                                     <p className="text-xs text-gray-500">{doc.sector?.name} · {doc.document_type?.name}</p>
                                 </div>
                                 <div className="text-left shrink-0">
-                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('ar-SA')}</p>
+                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('en-GB')}</p>
                                     {doc.uploader && <p className="text-xs text-gray-400 mt-0.5">{doc.uploader.name}</p>}
                                 </div>
                             </Link>
@@ -534,7 +534,7 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                                         <p className="text-sm text-gray-700 truncate">{log.description ?? log.action}</p>
                                         <p className="text-xs text-gray-400">{log.user_name}</p>
                                     </div>
-                                    <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(log.created_at).toLocaleTimeString('ar-SA', {hour: '2-digit', minute: '2-digit'})}</span>
+                                    <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(log.created_at).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}</span>
                                 </div>
                             );
                         })}

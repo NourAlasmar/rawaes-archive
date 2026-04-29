@@ -49,7 +49,7 @@ function CustomTooltip({ active, payload, label }) {
                 <div key={i} className="flex items-center gap-2 text-xs">
                     <span className="w-2 h-2 rounded-full" style={{ background: p.color || p.payload?.fill }}></span>
                     <span className="text-gray-600">{p.name}:</span>
-                    <span className="font-bold text-gray-900">{p.value?.toLocaleString('ar-SA')}</span>
+                    <span className="font-bold text-gray-900">{p.value?.toLocaleString('en-GB')}</span>
                 </div>
             ))}
         </div>
@@ -186,10 +186,10 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard icon={FileText}        label="مستندات الفترة" value={totals.documents.toLocaleString('ar-SA')} color="text-blue-600"   accent="bg-blue-50" />
+                <StatCard icon={FileText}        label="مستندات الفترة" value={totals.documents.toLocaleString('en-GB')} color="text-blue-600"   accent="bg-blue-50" />
                 <StatCard icon={HardDrive}       label="حجم المستندات" value={formatBytes(totals.size)}                  color="text-purple-600" accent="bg-purple-50" />
-                <StatCard icon={AlertTriangle}   label="منتهية (إجمالي)" value={totals.expired.toLocaleString('ar-SA')}    color="text-red-600"    accent="bg-red-50" />
-                <StatCard icon={Clock}           label="تنتهي قريباً" value={totals.expiring.toLocaleString('ar-SA')}      color="text-amber-600"  accent="bg-amber-50" />
+                <StatCard icon={AlertTriangle}   label="منتهية (إجمالي)" value={totals.expired.toLocaleString('en-GB')}    color="text-red-600"    accent="bg-red-50" />
+                <StatCard icon={Clock}           label="تنتهي قريباً" value={totals.expiring.toLocaleString('en-GB')}      color="text-amber-600"  accent="bg-amber-50" />
             </div>
 
             {/* Trend Area Chart */}
@@ -366,7 +366,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                                                 <span className="text-sm font-medium text-gray-700">{a.name}</span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs text-gray-500">{pct.toFixed(0)}%</span>
-                                                    <span className="text-sm font-bold text-gray-800">{a.value.toLocaleString('ar-SA')}</span>
+                                                    <span className="text-sm font-bold text-gray-800">{a.value.toLocaleString('en-GB')}</span>
                                                 </div>
                                             </div>
                                             <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">

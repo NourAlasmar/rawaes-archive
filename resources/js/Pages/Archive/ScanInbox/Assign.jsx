@@ -96,7 +96,7 @@ export default function AssignScan({ scan, sectors, folders, documentTypes }) {
                     <div className="p-3 border-t border-gray-100 flex flex-wrap gap-3 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                             <Calendar size={11} />
-                            {new Date(scan.created_at).toLocaleString('ar-SA', { dateStyle: 'short', timeStyle: 'short' })}
+                            {new Date(scan.created_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
                         </span>
                         {scan.source_device && (
                             <span className="flex items-center gap-1">
