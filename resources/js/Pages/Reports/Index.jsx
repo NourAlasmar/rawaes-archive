@@ -57,6 +57,8 @@ const actionLabels = {
     scan_received: 'مسح ضوئي جديد',
     scan_assigned: 'تصنيف مسح ضوئي',
     scan_deleted: 'حذف مسح ضوئي',
+    document_emailed: 'إرسال بالبريد',
+    audit_export: 'تصدير سجل التدقيق',
 };
 
 // ─────── Custom tooltip ───────
