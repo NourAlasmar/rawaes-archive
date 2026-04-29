@@ -1,13 +1,146 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import { QRCodeSVG } from 'qrcode.react';
 import {
     FileText, Download, Edit2, Trash2, ArrowLeft, Calendar,
     Building2, User, Clock, QrCode, MapPin, Lock, Shield,
     FolderOpen, Archive, Tag, FileType, AlertTriangle, CheckCircle,
-    Printer, ScanSearch, Sparkles, Loader2
+    Printer, ScanSearch, Sparkles, Loader2, Mail, X, Send, Plus
 } from 'lucide-react';
+
+function EmailModal({ document, open, onClose }) {
+    const { data, setData, post, processing, errors, reset } = useForm({
+        recipients: [''],
+        cc: [],
+        subject: `مستند: ${document.title}`,
+        note: '',
+    });
+
+    if (!open) return null;
+
+    const submit = (e) => {
+        e.preventDefault();
+        post(`/archive/documents/${document.id}/email`, {
+            preserveScroll: true,
+            onSuccess: () => { reset(); onClose(); },
+        });
+    };
+
+    const addRecipient = () => setData('recipients', [...data.recipients, '']);
+    const removeRecipient = (i) => setData('recipients', data.recipients.filter((_, idx) => idx !== i));
+    const updateRecipient = (i, val) => {
+        const next = [...data.recipients];
+        next[i] = val;
+        setData('recipients', next);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="sticky top-0 bg-white p-5 border-b border-gray-100 flex items-center justify-between rounded-t-2xl">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                            <Mail size={20} className="text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-800">إرسال المستند بالبريد</h3>
+                            <p className="text-xs text-gray-500 truncate max-w-xs">{document.title}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <form onSubmit={submit} className="p-5 space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                            المستلمون <span className="text-red-500">*</span>
+                        </label>
+                        <div className="space-y-2">
+                            {data.recipients.map((r, i) => (
+                                <div key={i} className="flex gap-2">
+                                    <input
+                                        type="email"
+                                        value={r}
+                                        onChange={e => updateRecipient(i, e.target.value)}
+                                        required
+                                        dir="ltr"
+                                        placeholder="email@example.com"
+                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                    {data.recipients.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRecipient(i)}
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {data.recipients.length < 10 && (
+                            <button
+                                type="button"
+                                onClick={addRecipient}
+                                className="mt-2 text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                            >
+                                <Plus size={12} /> إضافة مستلم آخر
+                            </button>
+                        )}
+                        {errors['recipients.0'] && <p className="text-red-500 text-xs mt-1">{errors['recipients.0']}</p>}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">عنوان الرسالة</label>
+                        <input
+                            type="text"
+                            value={data.subject}
+                            onChange={e => setData('subject', e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">رسالة (اختياري)</label>
+                        <textarea
+                            value={data.note}
+                            onChange={e => setData('note', e.target.value)}
+                            rows={4}
+                            placeholder="ملاحظة تُضاف لنص الرسالة..."
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                        />
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+                        📎 سيتم إرفاق الملف <strong>{document.file_name}</strong> تلقائياً مع الرسالة
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                        >
+                            إلغاء
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={processing}
+                            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg text-sm font-bold"
+                        >
+                            {processing ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                            {processing ? 'جاري الإرسال...' : 'إرسال'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
 
 function formatBytes(bytes) {
     if (!bytes) return '0 B';
@@ -38,6 +171,7 @@ const statusLabels = {
 
 export default function ShowDocument({ document }) {
     const [runningOcr, setRunningOcr] = useState(false);
+    const [emailOpen, setEmailOpen] = useState(false);
     const ext = document.file_extension?.toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     const isPdf = ext === 'pdf';
@@ -125,6 +259,13 @@ export default function ShowDocument({ document }) {
                                     <Download size={15} />
                                     <span className="hidden sm:inline">تحميل</span>
                                 </a>
+                                <button
+                                    onClick={() => setEmailOpen(true)}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    <Mail size={15} />
+                                    <span className="hidden sm:inline">إرسال</span>
+                                </button>
                                 <Link
                                     href={`/archive/documents/${document.id}/edit`}
                                     className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors"
@@ -326,6 +467,8 @@ export default function ShowDocument({ document }) {
                     )}
                 </div>
             </div>
+
+            <EmailModal document={document} open={emailOpen} onClose={() => setEmailOpen(false)} />
         </>
     );
 }

@@ -48,6 +48,16 @@ services:
       # Scanner watcher
       SCAN_API_TOKEN: ${SCAN_API_TOKEN}
 
+      # Mail
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-روائس}
+
       BCRYPT_ROUNDS: 12
     volumes:
       - app-storage:/var/www/html/storage/app

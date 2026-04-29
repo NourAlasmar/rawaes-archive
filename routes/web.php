@@ -51,6 +51,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
+    Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
 
     // Scan Inbox
     Route::get('/scans', [\App\Http\Controllers\Archive\ScanInboxController::class, 'index'])->name('scans.index');

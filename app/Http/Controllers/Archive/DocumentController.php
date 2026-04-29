@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Archive;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessDocumentOcr;
+use App\Mail\DocumentEmailMail;
 use App\Models\ArchiveDocument;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
 use App\Models\DocumentType;
 use App\Models\Sector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -251,5 +253,48 @@ class DocumentController extends Controller
         ProcessDocumentOcr::dispatchSync($document->id);
 
         return back()->with('success', 'تم استخراج النص من المستند');
+    }
+
+    public function email(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('view', $document);
+
+        $validated = $request->validate([
+            'recipients'   => 'required|array|min:1|max:10',
+            'recipients.*' => 'required|email',
+            'subject'      => 'nullable|string|max:255',
+            'note'         => 'nullable|string|max:2000',
+            'cc'           => 'nullable|array|max:10',
+            'cc.*'         => 'nullable|email',
+        ]);
+
+        $sender = auth()->user();
+
+        try {
+            $mail = Mail::to($validated['recipients']);
+            if (!empty($validated['cc'])) {
+                $mail->cc(array_filter($validated['cc']));
+            }
+            $mail->send(new DocumentEmailMail(
+                document: $document,
+                senderName: $sender->name,
+                note: $validated['note'] ?? null,
+                subjectText: $validated['subject'] ?? ''
+            ));
+        } catch (\Throwable $e) {
+            \Log::error('Email send failed: ' . $e->getMessage());
+            return back()->with('error', 'فشل إرسال البريد: ' . $e->getMessage());
+        }
+
+        $recipientList = implode(', ', $validated['recipients']);
+        AuditLog::record(
+            'document_emailed',
+            $document,
+            [],
+            ['recipients' => $validated['recipients'], 'subject' => $validated['subject']],
+            "إرسال المستند «{$document->title}» إلى: {$recipientList}"
+        );
+
+        return back()->with('success', 'تم إرسال المستند بنجاح إلى ' . count($validated['recipients']) . ' مستلم');
     }
 }
