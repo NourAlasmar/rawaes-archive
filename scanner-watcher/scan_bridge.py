@@ -172,19 +172,36 @@ def create_app(scan_token: str, scans_folder: Path):
 
         log.info(f'📥 Scan request: color={color}, dpi={dpi}')
 
-        with tempfile.TemporaryDirectory() as tmp:
-            filepath = scan_via_wia(Path(tmp), color=color, dpi=dpi)
-            if not filepath or not filepath.exists():
-                return jsonify({'error': 'scan_failed', 'message': 'Could not scan. Make sure scanner is on and ready.'}), 500
+        # Use a unique temp file (not directory) to avoid cleanup issues on Windows
+        import io, uuid
+        tmp_dir = Path(tempfile.gettempdir()) / 'rawaes_scans'
+        tmp_dir.mkdir(parents=True, exist_ok=True)
 
-            # Move to scans folder for the watcher to pick up later if needed,
-            # but mainly we return the file directly to the browser.
-            return send_file(
-                str(filepath),
+        filepath = scan_via_wia(tmp_dir, color=color, dpi=dpi)
+        if not filepath or not filepath.exists():
+            return jsonify({'error': 'scan_failed', 'message': 'Could not scan. Make sure scanner is on and ready.'}), 500
+
+        try:
+            # Read file into memory then delete immediately
+            with open(filepath, 'rb') as f:
+                data = f.read()
+            try:
+                filepath.unlink()
+            except Exception as e:
+                log.warning(f'Could not delete temp file: {e}')
+
+            from flask import Response
+            return Response(
+                data,
                 mimetype='image/jpeg',
-                as_attachment=False,
-                download_name=filepath.name,
+                headers={
+                    'Content-Disposition': f'inline; filename="{filepath.name}"',
+                    'Content-Length': str(len(data)),
+                },
             )
+        except Exception as e:
+            log.error(f'Error reading scan: {e}')
+            return jsonify({'error': 'read_failed', 'message': str(e)}), 500
 
     return app
 
