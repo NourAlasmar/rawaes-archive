@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
 import { Head, useForm, Link, router, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Upload, X, FileText, File, Image, AlertCircle, ChevronDown, Camera, ScanLine, Loader2 } from 'lucide-react';
+import { Upload, X, FileText, File as FileIcon, Image, AlertCircle, ChevronDown, Camera, ScanLine, Loader2 } from 'lucide-react';
 import CameraCapture from '@/Components/Archive/CameraCapture';
 
 function FileIcon({ ext }) {
     if (['jpg', 'jpeg', 'png'].includes(ext?.toLowerCase())) return <Image size={20} className="text-green-500" />;
     if (ext?.toLowerCase() === 'pdf') return <FileText size={20} className="text-red-500" />;
-    return <File size={20} className="text-blue-500" />;
+    return <FileIcon size={20} className="text-blue-500" />;
 }
 
 function formatBytes(bytes) {
