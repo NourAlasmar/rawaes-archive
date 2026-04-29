@@ -37,6 +37,8 @@ API_URL = config.get('main', 'api_url').rstrip('/')
 API_TOKEN = config.get('main', 'api_token')
 DEVICE_NAME = config.get('main', 'device_name', fallback='Scanner-PC')
 PROCESSED_FOLDER = config.get('main', 'processed_folder', fallback='processed')
+BRIDGE_ENABLED = config.getboolean('main', 'bridge_enabled', fallback=True)
+BRIDGE_PORT = config.getint('main', 'bridge_port', fallback=9999)
 ALLOWED_EXTS = {'.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp'}
 
 # ────────────── LOGGING ──────────────
@@ -176,6 +178,14 @@ def main():
 
     if not health_check():
         log.warning('⚠️  Will keep retrying in background...')
+
+    # Start the local HTTP bridge for browser-triggered scans
+    if BRIDGE_ENABLED:
+        try:
+            from scan_bridge import run_bridge
+            run_bridge(API_TOKEN, folder, port=BRIDGE_PORT)
+        except Exception as e:
+            log.warning(f'⚠️  Could not start scan bridge: {e}')
 
     process_existing_files(folder)
 

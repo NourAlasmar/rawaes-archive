@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Head, useForm, Link, router } from '@inertiajs/react';
+import { Head, useForm, Link, router, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Upload, X, FileText, File, Image, AlertCircle, ChevronDown, Camera } from 'lucide-react';
+import { Upload, X, FileText, File, Image, AlertCircle, ChevronDown, Camera, ScanLine, Loader2 } from 'lucide-react';
 import CameraCapture from '@/Components/Archive/CameraCapture';
 
 function FileIcon({ ext }) {
@@ -62,6 +62,43 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
     const [files, setFiles] = useState([]);
     const [dragging, setDragging] = useState(false);
     const [cameraOpen, setCameraOpen] = useState(false);
+    const [scanning, setScanning] = useState(false);
+    const [scanError, setScanError] = useState(null);
+
+    // Scanner bridge — runs on the user's local PC at localhost:9999
+    const SCAN_BRIDGE_URL = 'http://localhost:9999';
+    const SCAN_TOKEN = usePage().props.scanBridge?.token || '';
+
+    const triggerScan = async (color = 'color', dpi = 200) => {
+        setScanning(true);
+        setScanError(null);
+        try {
+            const res = await fetch(`${SCAN_BRIDGE_URL}/scan`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Scan-Token': SCAN_TOKEN,
+                },
+                body: JSON.stringify({ color, dpi }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || `فشل المسح (${res.status})`);
+            }
+
+            const blob = await res.blob();
+            const file = new File([blob], `scan-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+            handleFiles([file]);
+        } catch (err) {
+            const msg = err.message?.includes('Failed to fetch')
+                ? 'لا يمكن الاتصال بجهاز الكمبيوتر. تأكد من تشغيل برنامج "روائس - مراقب السكانر"'
+                : err.message || 'فشل المسح';
+            setScanError(msg);
+        } finally {
+            setScanning(false);
+        }
+    };
 
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
@@ -165,18 +202,49 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                             <p className="text-gray-400 text-sm mt-1">PDF, JPG, PNG, Word, Excel — حد أقصى 50MB</p>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => setCameraOpen(true)}
-                            className="border-2 border-dashed border-blue-300 rounded-xl p-6 text-center transition-colors bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 group"
-                        >
-                            <div className="w-14 h-14 mx-auto mb-2 rounded-full bg-blue-500 group-hover:bg-blue-600 flex items-center justify-center transition-colors">
-                                <Camera size={26} className="text-white" />
-                            </div>
-                            <p className="text-gray-700 font-medium text-sm">مسح ضوئي</p>
-                            <p className="text-gray-400 text-xs mt-1">استخدم الكاميرا/الماسح</p>
-                        </button>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={() => triggerScan('color', 200)}
+                                disabled={scanning}
+                                className="flex-1 border-2 border-dashed border-amber-300 rounded-xl p-4 text-center transition-colors bg-amber-50/50 hover:bg-amber-50 hover:border-amber-400 disabled:opacity-50 disabled:cursor-wait group"
+                            >
+                                <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-amber-500 group-hover:bg-amber-600 flex items-center justify-center transition-colors">
+                                    {scanning
+                                        ? <Loader2 size={22} className="text-white animate-spin" />
+                                        : <ScanLine size={22} className="text-white" />}
+                                </div>
+                                <p className="text-gray-700 font-medium text-sm">{scanning ? 'جاري المسح...' : 'مسح ضوئي'}</p>
+                                <p className="text-gray-400 text-xs mt-0.5">من الجهاز مباشرة</p>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setCameraOpen(true)}
+                                className="flex-1 border-2 border-dashed border-blue-300 rounded-xl p-3 text-center transition-colors bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400 group"
+                            >
+                                <Camera size={18} className="mx-auto text-blue-500 mb-1" />
+                                <p className="text-gray-700 font-medium text-xs">كاميرا</p>
+                            </button>
+                        </div>
                     </div>
+
+                    {scanError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                            <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                            <div className="flex-1 text-sm">
+                                <p className="font-medium text-red-700">فشل المسح</p>
+                                <p className="text-red-600 text-xs mt-1">{scanError}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setScanError(null)}
+                                className="text-red-400 hover:text-red-600"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
 
                     {cameraOpen && (
                         <CameraCapture

@@ -1,53 +1,92 @@
-# Rawaes Scan Watcher
+# Rawaes Scan Watcher + Bridge
 
-سكريبت يراقب مجلد على PC المكتب ويرفع أي ملف ممسوح ضوئياً تلقائياً إلى نظام روائس.
+برنامج Windows يقوم بـ:
+1. **مراقبة مجلد** السكانر — أي ملف ممسوح يُرفع تلقائياً للنظام
+2. **جسر محلي** — السماح للمتصفح بطلب مسح ضوئي مباشرة من الجهاز
 
-## المتطلبات
+---
 
+## ✅ المتطلبات
+
+- Windows 10/11
 - Python 3.8+
-- Windows / Mac / Linux
-- اتصال إنترنت بالسيرفر
+- HP ScanJet 8270 (أو أي سكانر يدعم WIA) مُضاف في **Windows Settings → Printers & scanners**
 
-## التثبيت
+## 🛠️ التثبيت
 
-```bash
-# 1. ثبّت Python من python.org
-# 2. ثبّت المكتبات:
-pip install requests watchdog
-
-# 3. انسخ ملف الإعدادات:
-copy config.ini.example config.ini   # Windows
-cp config.ini.example config.ini      # Mac/Linux
-
-# 4. عدّل config.ini بالقيم الصحيحة
+```cmd
+pip install requests watchdog flask flask-cors pywin32 pillow
 ```
 
-## التشغيل
+ثم:
 
-```bash
+```cmd
+copy config.ini.example config.ini
+notepad config.ini
+```
+
+عدّل القيم:
+- `watch_folder` = مجلد السكانر (مثل `C:\Scans`)
+- `api_url` = رابط النظام
+- `api_token` = توكن API
+- `device_name` = اسم الكمبيوتر
+- `bridge_enabled = true` — لتفعيل المسح المباشر من المتصفح
+
+---
+
+## 🚀 التشغيل
+
+```cmd
 python watcher.py
 ```
 
-## التشغيل التلقائي على Windows (كخدمة)
+أو دبل كلك على `start-watcher.bat`.
 
-استخدم NSSM:
-```cmd
-nssm install RawaesScanWatcher "C:\Python\python.exe" "C:\rawaes-watcher\watcher.py"
-nssm set RawaesScanWatcher AppDirectory "C:\rawaes-watcher"
-nssm start RawaesScanWatcher
+سيظهر في اللوغ:
+```
+🚀 Rawaes Scan Watcher Starting
+🌐 API:      http://...
+🌉 Scan Bridge running on http://localhost:9999
 ```
 
-أو عبر Task Scheduler — أنشئ مهمة تشتغل عند تسجيل الدخول.
+---
 
-## إعداد HP ScanJet 8270
+## 🌉 كيف يعمل الجسر؟
 
-1. ادخل واجهة الإدارة عبر المتصفح: `http://[scanner-ip]`
-2. **Scan Destinations → Add Folder**
-3. اختر **SMB** وأدخل مسار مجلد `C:\Scans` المشترك على PC المكتب
-4. اربط زر السكانر السريع بهذه الوجهة
+1. المستخدم يفتح صفحة "رفع مستند" في النظام
+2. يضغط زر **"مسح ضوئي"**
+3. المتصفح يرسل طلب لـ `http://localhost:9999/scan`
+4. الجسر على PC يأمر السكانر بالمسح عبر WIA
+5. الصورة تعود للمتصفح وتُضاف لقائمة الملفات
 
-## استكشاف الأخطاء
+---
 
-- راجع ملف `watcher.log`
-- تأكد من قيم `api_url` و `api_token` في config.ini
-- تأكد أن المجلد `watch_folder` موجود ومشترك
+## 🔧 استكشاف الأخطاء
+
+### "لا يمكن الاتصال بجهاز الكمبيوتر"
+- تأكد من تشغيل `watcher.py`
+- تأكد من `bridge_enabled = true` في config.ini
+- جرّب فتح [http://localhost:9999/health](http://localhost:9999/health) في المتصفح
+
+### "Could not scan"
+- تأكد أن السكانر متصل بالكهرباء وموصول للكمبيوتر
+- في **Windows Settings → Printers & scanners** يجب أن يكون السكانر ظاهراً
+- شغّل تطبيق **Windows Fax and Scan** يدوياً مرة لتأكيد عمل السكانر
+
+### "pywin32 not installed"
+```cmd
+pip install pywin32
+python -m pywin32_postinstall -install
+```
+
+---
+
+## 📂 الملفات المهمة
+
+| الملف | الوصف |
+|-------|--------|
+| `watcher.py` | الملف الرئيسي |
+| `scan_bridge.py` | الجسر بين المتصفح والسكانر |
+| `config.ini` | الإعدادات |
+| `start-watcher.bat` | تشغيل سريع |
+| `start-watcher-hidden.vbs` | تشغيل في الخلفية بدون نافذة |

@@ -56,6 +56,9 @@ class HandleInertiaRequests extends Middleware
                 ]),
             ] : ['unread_count' => 0, 'recent' => []],
             'pendingScansCount' => fn() => $user ? \App\Models\PendingScan::where('status', 'new')->count() : 0,
+            'scanBridge' => [
+                'token' => $user ? config('services.scan.token') : null,
+            ],
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),
                 'error' => fn() => $request->session()->get('error'),

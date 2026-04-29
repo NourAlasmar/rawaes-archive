@@ -15,3 +15,7 @@ device_name = Office-PC-1
 
 ; مجلد فرعي للملفات المرفوعة (داخل watch_folder)
 processed_folder = processed
+
+; تفعيل الجسر المحلي للسماح للمتصفح بطلب مسح ضوئي مباشر
+bridge_enabled = true
+bridge_port = 9999
