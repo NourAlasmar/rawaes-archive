@@ -68,6 +68,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::resource('sectors', SectorController::class);
     Route::resource('document-types', DocumentTypeController::class);
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.export');
 });
 
 require __DIR__ . '/auth.php';

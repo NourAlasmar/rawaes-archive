@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
-import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle, Archive, FolderPlus, FolderOpen, Settings, Plus, ScanLine, FileCheck } from 'lucide-react';
+import { Shield, Search, Eye, Download, Edit2, Trash2, LogIn, LogOut, Upload, UserPlus, UserCog, AlertCircle, Archive, FolderPlus, FolderOpen, Settings, Plus, ScanLine, FileCheck, FileSpreadsheet, Calendar } from 'lucide-react';
 import { useState } from 'react';
 
 const actionConfig = {
@@ -31,15 +31,24 @@ const actionConfig = {
 
 export default function AuditLogIndex({ logs, filters }) {
     const [search, setSearch] = useState(filters.search ?? '');
+    const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
+    const [dateTo, setDateTo] = useState(filters.date_to ?? '');
 
     const applySearch = (e) => {
         e.preventDefault();
-        router.get('/archive/audit-logs', { ...filters, search }, { preserveState: true });
+        router.get('/archive/audit-logs', { ...filters, search, date_from: dateFrom, date_to: dateTo }, { preserveState: true });
     };
 
     const applyFilter = (key, value) => {
         router.get('/archive/audit-logs', { ...filters, [key]: value }, { preserveState: true });
     };
+
+    // Build export URL with current filters
+    const exportParams = new URLSearchParams();
+    Object.entries({ ...filters, search, date_from: dateFrom, date_to: dateTo }).forEach(([k, v]) => {
+        if (v) exportParams.append(k, v);
+    });
+    const exportUrl = `/archive/audit-logs/export?${exportParams.toString()}`;
 
     return (
         <>
@@ -54,35 +63,69 @@ export default function AuditLogIndex({ logs, filters }) {
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-                <div className="flex flex-wrap gap-3">
-                    <form onSubmit={applySearch} className="flex gap-2 flex-1 min-w-48">
-                        <div className="relative flex-1">
+            <form onSubmit={applySearch} className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+                <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex-1 min-w-48">
+                        <label className="block text-xs text-gray-500 mb-1">بحث في الوصف</label>
+                        <div className="relative">
                             <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                placeholder="بحث في الوصف..."
+                                placeholder="ابحث..."
                                 className="w-full pr-9 pl-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                             />
                         </div>
-                        <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">
-                            بحث
-                        </button>
-                    </form>
-                    <select
-                        value={filters.action ?? ''}
-                        onChange={e => applyFilter('action', e.target.value)}
-                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    </div>
+
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">من تاريخ</label>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={e => setDateFrom(e.target.value)}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">إلى تاريخ</label>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            onChange={e => setDateTo(e.target.value)}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">الإجراء</label>
+                        <select
+                            value={filters.action ?? ''}
+                            onChange={e => applyFilter('action', e.target.value)}
+                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value="">كل الإجراءات</option>
+                            {Object.entries(actionConfig).map(([k, v]) => (
+                                <option key={k} value={k}>{v.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                        تطبيق
+                    </button>
+
+                    <a
+                        href={exportUrl}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors mr-auto"
                     >
-                        <option value="">كل الإجراءات</option>
-                        {Object.entries(actionConfig).map(([k, v]) => (
-                            <option key={k} value={k}>{v.label}</option>
-                        ))}
-                    </select>
+                        <FileSpreadsheet size={16} />
+                        تصدير Excel
+                    </a>
                 </div>
-            </div>
+            </form>
 
             {/* Table */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
