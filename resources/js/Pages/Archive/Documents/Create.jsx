@@ -3,6 +3,7 @@ import { Head, useForm, Link, router, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import { Upload, X, FileText, File as LucideFile, Image, AlertCircle, ChevronDown, Camera, ScanLine, Loader2 } from 'lucide-react';
 import CameraCapture from '@/Components/Archive/CameraCapture';
+import MultiPageScan from '@/Components/Archive/MultiPageScan';
 
 function FileIcon({ ext }) {
     if (['jpg', 'jpeg', 'png'].includes(ext?.toLowerCase())) return <Image size={20} className="text-green-500" />;
@@ -62,57 +63,10 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
     const [files, setFiles] = useState([]);
     const [dragging, setDragging] = useState(false);
     const [cameraOpen, setCameraOpen] = useState(false);
-    const [scanning, setScanning] = useState(false);
-    const [scanError, setScanError] = useState(null);
+    const [scanModalOpen, setScanModalOpen] = useState(false);
 
-    // Scanner bridge — runs on the user's local PC at localhost:9999
-    const SCAN_BRIDGE_URL = 'http://localhost:9999';
     const SCAN_TOKEN = usePage().props.scanBridge?.token || '';
 
-    const triggerScan = async (color = 'color', dpi = 200) => {
-        setScanning(true);
-        setScanError(null);
-        try {
-            // First check connectivity (avoids preflight on POST when token wrong)
-            const healthRes = await fetch(`${SCAN_BRIDGE_URL}/health`, {
-                method: 'GET',
-                mode: 'cors',
-            }).catch(() => null);
-
-            if (!healthRes || !healthRes.ok) {
-                throw new Error('CONNECTION_FAILED');
-            }
-
-            const res = await fetch(`${SCAN_BRIDGE_URL}/scan`, {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Scan-Token': SCAN_TOKEN,
-                },
-                body: JSON.stringify({ color, dpi }),
-            });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || `فشل المسح (${res.status})`);
-            }
-
-            const blob = await res.blob();
-            const file = new File([blob], `scan-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
-            handleFiles([file]);
-        } catch (err) {
-            let msg;
-            if (err.message === 'CONNECTION_FAILED' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-                msg = 'لا يمكن الاتصال بجهاز الكمبيوتر. تأكد من:\n1. تشغيل برنامج "روائس - مراقب السكانر"\n2. أن السكانر متصل وجاهز\n3. السماح للمتصفح بالوصول للشبكة المحلية';
-            } else {
-                msg = err.message || 'فشل المسح';
-            }
-            setScanError(msg);
-        } finally {
-            setScanning(false);
-        }
-    };
 
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
@@ -219,17 +173,14 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                         <div className="flex flex-col gap-2">
                             <button
                                 type="button"
-                                onClick={() => triggerScan('color', 200)}
-                                disabled={scanning}
-                                className="flex-1 border-2 border-dashed border-amber-300 rounded-xl p-4 text-center transition-colors bg-amber-50/50 hover:bg-amber-50 hover:border-amber-400 disabled:opacity-50 disabled:cursor-wait group"
+                                onClick={() => setScanModalOpen(true)}
+                                className="flex-1 border-2 border-dashed border-amber-300 rounded-xl p-4 text-center transition-colors bg-amber-50/50 hover:bg-amber-50 hover:border-amber-400 group"
                             >
                                 <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-amber-500 group-hover:bg-amber-600 flex items-center justify-center transition-colors">
-                                    {scanning
-                                        ? <Loader2 size={22} className="text-white animate-spin" />
-                                        : <ScanLine size={22} className="text-white" />}
+                                    <ScanLine size={22} className="text-white" />
                                 </div>
-                                <p className="text-gray-700 font-medium text-sm">{scanning ? 'جاري المسح...' : 'مسح ضوئي'}</p>
-                                <p className="text-gray-400 text-xs mt-0.5">من الجهاز مباشرة</p>
+                                <p className="text-gray-700 font-medium text-sm">مسح ضوئي</p>
+                                <p className="text-gray-400 text-xs mt-0.5">PDF متعدد الصفحات</p>
                             </button>
 
                             <button
@@ -243,22 +194,12 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                         </div>
                     </div>
 
-                    {scanError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-                            <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                            <div className="flex-1 text-sm">
-                                <p className="font-medium text-red-700">فشل المسح</p>
-                                <p className="text-red-600 text-xs mt-1">{scanError}</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setScanError(null)}
-                                className="text-red-400 hover:text-red-600"
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
-                    )}
+                    <MultiPageScan
+                        open={scanModalOpen}
+                        onClose={() => setScanModalOpen(false)}
+                        onComplete={(file) => handleFiles([file])}
+                        scanToken={SCAN_TOKEN}
+                    />
 
                     {cameraOpen && (
                         <CameraCapture
