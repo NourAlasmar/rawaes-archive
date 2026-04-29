@@ -34,9 +34,29 @@ function formatBytes(bytes) {
 }
 
 const actionLabels = {
-    upload: 'رفع', view: 'استعراض', download: 'تحميل', update: 'تعديل',
-    delete: 'حذف', login: 'تسجيل دخول', logout: 'تسجيل خروج', login_failed: 'دخول فاشل',
-    create_user: 'إنشاء مستخدم', update_user: 'تعديل مستخدم',
+    upload: 'رفع مستند',
+    view: 'استعراض',
+    download: 'تحميل',
+    update: 'تعديل',
+    delete: 'حذف',
+    login: 'تسجيل دخول',
+    logout: 'تسجيل خروج',
+    login_failed: 'دخول فاشل',
+    create_user: 'إنشاء مستخدم',
+    update_user: 'تعديل مستخدم',
+    delete_user: 'حذف مستخدم',
+    create_sector: 'إنشاء قطاع',
+    update_sector: 'تعديل قطاع',
+    delete_sector: 'حذف قطاع',
+    create_folder: 'إنشاء مجلد',
+    update_folder: 'تعديل مجلد',
+    delete_folder: 'حذف مجلد',
+    create_type: 'إنشاء نوع مستند',
+    update_type: 'تعديل نوع مستند',
+    delete_type: 'حذف نوع مستند',
+    scan_received: 'مسح ضوئي جديد',
+    scan_assigned: 'تصنيف مسح ضوئي',
+    scan_deleted: 'حذف مسح ضوئي',
 };
 
 // ─────── Custom tooltip ───────
