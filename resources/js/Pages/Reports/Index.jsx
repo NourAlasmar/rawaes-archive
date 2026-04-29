@@ -72,7 +72,7 @@ function StatCard({ icon: Icon, label, value, color, accent, change }) {
                         </span>
                     )}
                 </div>
-                <p className={`text-3xl font-bold ${color}`}>{value}</p>
+                <p className={`text-3xl font-bold ${color}`} dir="ltr" style={{textAlign: 'right'}}>{value}</p>
                 <p className="text-sm text-gray-500 mt-1">{label}</p>
             </div>
         </div>

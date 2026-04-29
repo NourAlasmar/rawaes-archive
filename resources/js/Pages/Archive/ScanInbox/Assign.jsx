@@ -64,7 +64,7 @@ export default function AssignScan({ scan, sectors, folders, documentTypes }) {
                             <div>
                                 <p className="font-medium text-gray-800 text-sm truncate">{scan.original_name}</p>
                                 <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                                    <span>{scan.file_size_formatted}</span>
+                                    <span dir="ltr">{scan.file_size_formatted}</span>
                                     <span>·</span>
                                     <span className="font-mono">{scan.file_extension?.toUpperCase()}</span>
                                 </div>

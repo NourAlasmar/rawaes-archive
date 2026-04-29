@@ -93,7 +93,7 @@ export default function ShowDocument({ document }) {
                                         )}
                                         <span>{document.file_extension?.toUpperCase()}</span>
                                         <span className="text-gray-300">·</span>
-                                        <span>{formatBytes(document.file_size)}</span>
+                                        <span dir="ltr">{formatBytes(document.file_size)}</span>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 mt-2">
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>

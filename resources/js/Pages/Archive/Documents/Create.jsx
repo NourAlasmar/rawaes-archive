@@ -206,7 +206,7 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
                                             />
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-xs text-gray-500">{formatBytes(f.size)}</p>
+                                            <p className="text-xs text-gray-500" dir="ltr">{formatBytes(f.size)}</p>
                                             <button type="button" onClick={() => removeFile(f.id)} className="mt-1 text-gray-400 hover:text-red-500">
                                                 <X size={14} />
                                             </button>

@@ -65,7 +65,7 @@ export default function ScanInboxIndex({ scans, count }) {
                                             <Calendar size={11} />
                                             {new Date(scan.created_at).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
                                         </span>
-                                        <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded">{scan.file_size_formatted}</span>
+                                        <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded" dir="ltr">{scan.file_size_formatted}</span>
                                     </div>
                                     {scan.source_device && (
                                         <p className="flex items-center gap-1 text-xs text-gray-400 mb-3">
