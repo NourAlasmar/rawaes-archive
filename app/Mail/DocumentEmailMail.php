@@ -36,11 +36,12 @@ class DocumentEmailMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.document',
+            view: 'emails.document',
             with: [
                 'document' => $this->document,
                 'senderName' => $this->senderName,
                 'note' => $this->note,
+                'appUrl' => config('app.url'),
             ],
         );
     }
