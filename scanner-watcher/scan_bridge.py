@@ -15,13 +15,27 @@ from typing import Optional
 log = logging.getLogger('bridge')
 
 
-def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200, preferred_scanner: str = '') -> Optional[Path]:
+def _set_property(props, prop_id, value):
+    """Helper to set a WIA property by ID."""
+    for prop in props:
+        if prop.PropertyID == prop_id:
+            try:
+                prop.Value = value
+                return True
+            except Exception as e:
+                log.debug(f'Could not set property {prop_id}={value}: {e}')
+    return False
+
+
+def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200,
+                 preferred_scanner: str = '', source: str = 'feeder') -> Optional[Path]:
     """
     Trigger a scan using Windows Image Acquisition (WIA).
     Returns the path of the saved scan, or None on failure.
 
     Args:
         preferred_scanner: substring of scanner name to match (case-insensitive)
+        source: 'feeder' (ADF tray) | 'flatbed' (glass) | 'auto'
 
     Requires: pywin32 (pip install pywin32)
     """
@@ -41,7 +55,7 @@ def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200, preferr
             log.error('No WIA scanner found. Add the scanner in Windows Settings > Printers & scanners')
             return None
 
-        # Find scanner — match by name if specified
+        # Find scanner
         device_info = None
         all_names = []
         for i in range(1, devices.Count + 1):
@@ -61,23 +75,37 @@ def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200, preferr
         log.info(f'🖨️ Using scanner: {device_info.Properties("Name").Value}')
         device = device_info.Connect()
 
+        # Set DOCUMENT_HANDLING_SELECT on device level (3088)
+        # 1 = FEEDER, 2 = FLATBED, 4 = DUPLEX
+        WIA_DPS_DOCUMENT_HANDLING_SELECT = 3088
+        WIA_DPS_PAGES = 3096
+
+        source_value = None
+        if source == 'feeder':
+            source_value = 1
+        elif source == 'flatbed':
+            source_value = 2
+
+        if source_value is not None:
+            ok = _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value)
+            if ok:
+                log.info(f'📥 Source set to: {source}')
+                # Set pages = 1 (scan one page from feeder)
+                _set_property(device.Properties, WIA_DPS_PAGES, 1)
+            else:
+                log.warning(f'⚠️ Could not set source to {source} - device may not support it')
+
         item = device.Items(1)
 
-        # Configure scan properties
+        # Configure scan properties on item
         properties_map = {
-            6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,  # CurrentIntent: 0=color, 1=gray, 2=bw
+            6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,  # CurrentIntent
             6147: dpi,   # Horizontal Resolution
             6148: dpi,   # Vertical Resolution
         }
 
         for prop_id, value in properties_map.items():
-            try:
-                for prop in item.Properties:
-                    if prop.PropertyID == prop_id:
-                        prop.Value = value
-                        break
-            except Exception:
-                pass
+            _set_property(item.Properties, prop_id, value)
 
         # Transfer the image
         WIA_FORMAT_JPEG = '{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}'
@@ -93,7 +121,12 @@ def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200, preferr
         return filepath
 
     except Exception as e:
-        log.error(f'❌ WIA scan error: {e}')
+        msg = str(e)
+        # Common error: ADF empty
+        if '0x80210003' in msg or 'paper' in msg.lower() or 'empty' in msg.lower():
+            log.error('❌ الدرج فارغ — ضع الورق في درج السكانر')
+        else:
+            log.error(f'❌ WIA scan error: {e}')
         return None
     finally:
         try:
@@ -132,7 +165,7 @@ def list_scanners() -> list:
             pass
 
 
-def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = ''):
+def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '', default_source: str = 'feeder'):
     """Create the Flask bridge application."""
     try:
         from flask import Flask, request, jsonify, send_file
@@ -187,15 +220,16 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '')
         body = request.get_json(silent=True) or {}
         color = body.get('color', 'color')  # color | gray | bw
         dpi = int(body.get('dpi', 200))
+        source = body.get('source', default_source)  # feeder | flatbed | auto
 
-        log.info(f'📥 Scan request: color={color}, dpi={dpi}')
+        log.info(f'📥 Scan request: source={source}, color={color}, dpi={dpi}')
 
         # Use a unique temp file (not directory) to avoid cleanup issues on Windows
         import io, uuid
         tmp_dir = Path(tempfile.gettempdir()) / 'rawaes_scans'
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
-        filepath = scan_via_wia(tmp_dir, color=color, dpi=dpi, preferred_scanner=preferred_scanner)
+        filepath = scan_via_wia(tmp_dir, color=color, dpi=dpi, preferred_scanner=preferred_scanner, source=source)
         if not filepath or not filepath.exists():
             return jsonify({'error': 'scan_failed', 'message': 'Could not scan. Make sure scanner is on and ready.'}), 500
 
@@ -224,9 +258,9 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '')
     return app
 
 
-def run_bridge(scan_token: str, scans_folder: Path, port: int = 9999, preferred_scanner: str = ''):
+def run_bridge(scan_token: str, scans_folder: Path, port: int = 9999, preferred_scanner: str = '', default_source: str = 'feeder'):
     """Start the bridge in a background thread."""
-    app = create_app(scan_token, scans_folder, preferred_scanner=preferred_scanner)
+    app = create_app(scan_token, scans_folder, preferred_scanner=preferred_scanner, default_source=default_source)
     if not app:
         log.warning('⚠️  Bridge disabled (Flask not installed)')
         return

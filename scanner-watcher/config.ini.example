@@ -23,3 +23,9 @@ bridge_port = 9999
 ; اسم السكانر المفضّل (جزء من الاسم يكفي - case insensitive)
 ; مثال: scanjet 8200 — لو فاضي يستخدم أول سكانر يجده
 preferred_scanner = scanjet
+
+; مصدر المسح:
+;   feeder  = درج التغذية التلقائي ADF (الأعلى)
+;   flatbed = الزجاج
+;   auto    = السكانر يقرر
+scan_source = feeder
