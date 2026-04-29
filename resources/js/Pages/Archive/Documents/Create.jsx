@@ -73,8 +73,19 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
         setScanning(true);
         setScanError(null);
         try {
+            // First check connectivity (avoids preflight on POST when token wrong)
+            const healthRes = await fetch(`${SCAN_BRIDGE_URL}/health`, {
+                method: 'GET',
+                mode: 'cors',
+            }).catch(() => null);
+
+            if (!healthRes || !healthRes.ok) {
+                throw new Error('CONNECTION_FAILED');
+            }
+
             const res = await fetch(`${SCAN_BRIDGE_URL}/scan`, {
                 method: 'POST',
+                mode: 'cors',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Scan-Token': SCAN_TOKEN,
@@ -91,9 +102,12 @@ export default function CreateDocument({ sectors, folders, documentTypes }) {
             const file = new File([blob], `scan-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
             handleFiles([file]);
         } catch (err) {
-            const msg = err.message?.includes('Failed to fetch')
-                ? 'لا يمكن الاتصال بجهاز الكمبيوتر. تأكد من تشغيل برنامج "روائس - مراقب السكانر"'
-                : err.message || 'فشل المسح';
+            let msg;
+            if (err.message === 'CONNECTION_FAILED' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+                msg = 'لا يمكن الاتصال بجهاز الكمبيوتر. تأكد من:\n1. تشغيل برنامج "روائس - مراقب السكانر"\n2. أن السكانر متصل وجاهز\n3. السماح للمتصفح بالوصول للشبكة المحلية';
+            } else {
+                msg = err.message || 'فشل المسح';
+            }
             setScanError(msg);
         } finally {
             setScanning(false);

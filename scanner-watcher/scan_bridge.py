@@ -124,7 +124,29 @@ def create_app(scan_token: str, scans_folder: Path):
         return None
 
     app = Flask(__name__)
-    CORS(app, resources={r"/*": {"origins": "*"}})
+    CORS(
+        app,
+        resources={r"/*": {"origins": "*"}},
+        allow_headers=["Content-Type", "X-Scan-Token", "Authorization", "Access-Control-Request-Private-Network"],
+        methods=["GET", "POST", "OPTIONS"],
+    )
+
+    # Add Private Network Access header for Chrome PNA policy
+    @app.after_request
+    def add_pna_headers(response):
+        response.headers['Access-Control-Allow-Private-Network'] = 'true'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Scan-Token, Authorization, Access-Control-Request-Private-Network'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        return response
+
+    @app.route('/', methods=['GET'])
+    def root():
+        return jsonify({
+            'service': 'Rawaes Scan Bridge',
+            'status': 'ok',
+            'endpoints': ['/health', '/scanners', '/scan'],
+        })
 
     @app.route('/health', methods=['GET'])
     def health():
