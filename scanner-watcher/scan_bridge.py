@@ -51,28 +51,44 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
             log.error('No WIA scanner found')
             return []
 
-        # Find scanner — prefer first match, skip "#N" duplicates
-        device_info = None
-        all_names = []
-        candidates = []
+        # List ALL scanners with index
+        all_scanners = []
+        log.info(f'━━━ Found {devices.Count} scanner(s) ━━━')
         for i in range(1, devices.Count + 1):
             d = devices(i)
             name = d.Properties('Name').Value
-            all_names.append(name)
-            if preferred_scanner and preferred_scanner.lower() in name.lower():
-                candidates.append((d, name))
+            all_scanners.append((i, d, name))
+            log.info(f'   [{i}] {name}')
 
-        if candidates:
-            # Prefer one without "#" suffix (original, not duplicate)
-            for d, name in candidates:
-                if '#' not in name:
+        # Find scanner — match preferred_scanner first
+        device_info = None
+        if preferred_scanner:
+            # First try EXACT match
+            for idx, d, name in all_scanners:
+                if name.lower() == preferred_scanner.lower():
                     device_info = d
+                    log.info(f'✓ Exact match: [{idx}] {name}')
                     break
+
+            # Then prefer ones WITHOUT "#" (original, not duplicate)
             if not device_info:
-                device_info = candidates[0][0]
-        else:
+                for idx, d, name in all_scanners:
+                    if preferred_scanner.lower() in name.lower() and '#' not in name:
+                        device_info = d
+                        log.info(f'✓ Selected (no dup): [{idx}] {name}')
+                        break
+
+            # Last resort: ANY match
+            if not device_info:
+                for idx, d, name in all_scanners:
+                    if preferred_scanner.lower() in name.lower():
+                        device_info = d
+                        log.warning(f'⚠️ Fell back to: [{idx}] {name} (consider removing duplicates from Windows)')
+                        break
+
+        if not device_info:
             if preferred_scanner:
-                log.warning(f'⚠️ "{preferred_scanner}" not found. Available: {all_names}')
+                log.warning(f'⚠️ No match for "{preferred_scanner}". Using first device.')
             device_info = devices(1)
 
         scanner_name = device_info.Properties('Name').Value
