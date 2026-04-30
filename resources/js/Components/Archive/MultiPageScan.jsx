@@ -7,19 +7,14 @@ import {
 
 const SCAN_BRIDGE_URL = 'http://localhost:9999';
 
-export default function MultiPageScan({ open, onClose, onComplete, scanToken, color = 'color', dpi = 200 }) {
-    const [pages, setPages] = useState([]);   // [{ blob, dataUrl, id }]
+export default function MultiPageScan({ open, onClose, onComplete, scanToken }) {
+    const [pages, setPages] = useState([]);
     const [scanning, setScanning] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState(null);
     const [defaultName, setDefaultName] = useState('scan');
-
-    useEffect(() => {
-        if (open && pages.length === 0) {
-            // Auto-scan first page when modal opens
-            scanPage();
-        }
-    }, [open]);
+    const [color, setColor] = useState('gray');      // 'color' | 'gray' | 'bw'
+    const [dpi, setDpi] = useState(150);             // 100 | 150 | 200 | 300
 
     useEffect(() => {
         if (!open) {
@@ -190,6 +185,41 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
                     )}
 
                     {/* Pages grid */}
+                    {/* Settings panel */}
+                    {pages.length === 0 && !scanning && !error && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5">
+                            <p className="text-sm font-medium text-gray-700 mb-3">إعدادات المسح</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">اللون</label>
+                                    <select value={color} onChange={e => setColor(e.target.value)}
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        <option value="gray">أبيض وأسود (أسرع)</option>
+                                        <option value="color">ملوّن</option>
+                                        <option value="bw">ثنائي (نص فقط)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-gray-500 mb-1">الجودة (DPI)</label>
+                                    <select value={dpi} onChange={e => setDpi(parseInt(e.target.value))}
+                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        <option value="100">منخفضة (100) - سريع جداً</option>
+                                        <option value="150">متوسطة (150) - موصى به</option>
+                                        <option value="200">عالية (200)</option>
+                                        <option value="300">عالية جداً (300) - بطيء</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
+                                <span className="text-amber-500 shrink-0">📌</span>
+                                <p className="text-xs text-amber-800">
+                                    ضع كل الأوراق في درج السكانر، ثم اضغط <strong>"ابدأ المسح"</strong>.
+                                    سيمسح كل الأوراق دفعة واحدة.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {pages.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
                             {pages.map((page, idx) => (

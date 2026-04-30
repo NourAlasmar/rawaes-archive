@@ -102,23 +102,28 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                 log.error(f'❌ Flatbed scan error: {e}')
             return paths
 
-        # For feeder: loop pages until empty
+        # For feeder: scan one page at a time
+        # Set PAGES property ONCE before loop (not in each iteration)
+        _set_property(device.Properties, WIA_DPS_PAGES, 1)
+
         page_num = 0
+        start_time = time.time()
         while page_num < max_pages:
             page_num += 1
+            page_start = time.time()
             try:
-                # Try setting WIA_DPS_PAGES = 1 (one page per call)
-                _set_property(device.Properties, WIA_DPS_PAGES, 1)
-
                 image = item.Transfer(WIA_FORMAT_JPEG)
                 fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
                 image.SaveFile(str(fp))
                 paths.append(fp)
-                log.info(f'✅ Page {page_num} saved: {fp.name}')
+                page_time = time.time() - page_start
+                log.info(f'✅ Page {page_num} saved ({page_time:.1f}s)')
             except Exception as e:
                 msg = str(e)
-                if '0x80210003' in msg or 'paper' in msg.lower() or 'empty' in msg.lower() or 'ready' in msg.lower():
-                    log.info(f'📤 ADF empty after {page_num - 1} pages')
+                # Common end-of-feeder errors
+                end_codes = ['0x80210003', '0x80210064', 'paper', 'empty', 'ready', 'no documents']
+                if any(c in msg.lower() for c in end_codes):
+                    log.info(f'📤 ADF finished — total {page_num - 1} pages in {time.time() - start_time:.1f}s')
                 else:
                     log.error(f'❌ Page {page_num} error: {e}')
                 break
