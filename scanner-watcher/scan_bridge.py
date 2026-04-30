@@ -123,40 +123,45 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                 log.error(f'❌ Flatbed scan error: {e}')
             return paths
 
-        # For feeder: each call gets fresh item
+        # For feeder: cache item ONCE, set properties ONCE, then loop Transfer
+        item = device.Items(1)
+        for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
+                                6147: dpi, 6148: dpi}.items():
+            _set_property(item.Properties, prop_id, value)
+
         page_num = 0
         start_time = time.time()
+        consecutive_errors = 0
+
         while page_num < max_pages:
             page_num += 1
             page_start = time.time()
             try:
-                # Get fresh item for each page (HP ScanJet works better this way)
-                item = device.Items(1)
-
-                # Set scan properties
-                for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
-                                        6147: dpi, 6148: dpi}.items():
-                    _set_property(item.Properties, prop_id, value)
-
                 image = item.Transfer(WIA_FORMAT_JPEG)
                 fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
                 image.SaveFile(str(fp))
                 paths.append(fp)
+                consecutive_errors = 0
                 log.info(f'✅ Page {page_num} ({time.time() - page_start:.1f}s)')
             except Exception as e:
                 msg = str(e).lower()
                 # Detect end-of-feeder
-                if any(c in msg for c in ['paper', 'empty', 'ready', 'no documents', '80210003', '80210064', 'feeder']):
+                end_indicators = ['paper', 'empty', 'ready', 'no documents', '80210003', '80210064', 'feeder',
+                                  '80070057', 'parameter is incorrect']
+                if any(c in msg for c in end_indicators):
                     log.info(f'📤 ADF finished — {page_num - 1} pages in {time.time() - start_time:.1f}s')
                     break
-                # Communication error - try once more then give up
+                # Generic error
+                consecutive_errors += 1
                 if page_num == 1:
-                    log.error(f'❌ Communication error: {e}')
-                    log.error('   جرب: 1) إغلاق برامج السكانر الأخرى 2) إعادة تشغيل WIA service 3) فصل وإعادة وصل السكانر')
+                    log.error(f'❌ Page 1 error: {e}')
+                    log.error('   جرب: إغلاق برامج السكانر / إعادة تشغيل WIA service')
                     break
-                else:
-                    log.warning(f'⚠️ Stopping after {page_num - 1} pages due to: {e}')
+                if consecutive_errors >= 2:
+                    log.warning(f'⚠️ Stopping after {page_num - 1} pages')
                     break
+                # Try once more
+                time.sleep(0.5)
 
         return paths
 
