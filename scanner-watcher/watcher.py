@@ -184,7 +184,23 @@ def main():
     # Start the local HTTP bridge for browser-triggered scans
     if BRIDGE_ENABLED:
         try:
-            from scan_bridge import run_bridge
+            from scan_bridge import run_bridge, list_scanners
+            # Show available scanners on startup
+            scanners = list_scanners()
+            if scanners:
+                log.info(f'━━━ Available scanners ({len(scanners)}) ━━━')
+                for i, s in enumerate(scanners, 1):
+                    log.info(f'   [{i}] {s["name"]}')
+                log.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+                if PREFERRED_SCANNER:
+                    matches = [s for s in scanners if PREFERRED_SCANNER.lower() in s['name'].lower()]
+                    if matches:
+                        log.info(f'🎯 Will use: {matches[0]["name"]} (matched "{PREFERRED_SCANNER}")')
+                    else:
+                        log.warning(f'⚠️ No scanner matches "{PREFERRED_SCANNER}". Will use first available.')
+            else:
+                log.warning('⚠️ No scanners found! Check Windows Settings.')
+
             run_bridge(API_TOKEN, folder, port=BRIDGE_PORT, preferred_scanner=PREFERRED_SCANNER, default_source=SCAN_SOURCE)
         except Exception as e:
             log.warning(f'⚠️  Could not start scan bridge: {e}')
