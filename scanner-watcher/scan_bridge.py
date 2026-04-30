@@ -27,6 +27,114 @@ def _set_property(props, prop_id, value):
     return False
 
 
+def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
+                       preferred_scanner: str = '', source: str = 'feeder',
+                       max_pages: int = 100) -> list:
+    """
+    Scan all available pages from the ADF (feeder) in one go.
+    Returns list of file paths.
+    """
+    try:
+        import pythoncom
+        from win32com.client import Dispatch
+    except ImportError:
+        log.error('pywin32 not installed. Run: pip install pywin32')
+        return []
+
+    pythoncom.CoInitialize()
+    paths = []
+
+    try:
+        manager = Dispatch('WIA.DeviceManager')
+        devices = manager.DeviceInfos
+        if devices.Count == 0:
+            log.error('No WIA scanner found')
+            return []
+
+        # Find scanner
+        device_info = None
+        all_names = []
+        for i in range(1, devices.Count + 1):
+            d = devices(i)
+            name = d.Properties('Name').Value
+            all_names.append(name)
+            if preferred_scanner and preferred_scanner.lower() in name.lower():
+                device_info = d
+                break
+        if not device_info:
+            if preferred_scanner:
+                log.warning(f'⚠️ Scanner matching "{preferred_scanner}" not found. Available: {all_names}')
+            device_info = devices(1)
+
+        log.info(f'🖨️ Using scanner: {device_info.Properties("Name").Value}')
+        device = device_info.Connect()
+
+        WIA_DPS_DOCUMENT_HANDLING_SELECT = 3088
+        WIA_DPS_PAGES = 3096
+        WIA_FORMAT_JPEG = '{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}'
+
+        source_value = 1 if source == 'feeder' else 2 if source == 'flatbed' else None
+
+        if source_value is not None:
+            if _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value):
+                log.info(f'📥 Source: {source}')
+
+        item = device.Items(1)
+        properties_map = {
+            6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
+            6147: dpi,
+            6148: dpi,
+        }
+        for prop_id, value in properties_map.items():
+            _set_property(item.Properties, prop_id, value)
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # For flatbed: only one page
+        if source == 'flatbed':
+            try:
+                image = item.Transfer(WIA_FORMAT_JPEG)
+                fp = output_dir / f'scan-{int(time.time() * 1000)}-1.jpg'
+                image.SaveFile(str(fp))
+                paths.append(fp)
+                log.info(f'✅ Page 1 saved: {fp.name}')
+            except Exception as e:
+                log.error(f'❌ Flatbed scan error: {e}')
+            return paths
+
+        # For feeder: loop pages until empty
+        page_num = 0
+        while page_num < max_pages:
+            page_num += 1
+            try:
+                # Try setting WIA_DPS_PAGES = 1 (one page per call)
+                _set_property(device.Properties, WIA_DPS_PAGES, 1)
+
+                image = item.Transfer(WIA_FORMAT_JPEG)
+                fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
+                image.SaveFile(str(fp))
+                paths.append(fp)
+                log.info(f'✅ Page {page_num} saved: {fp.name}')
+            except Exception as e:
+                msg = str(e)
+                if '0x80210003' in msg or 'paper' in msg.lower() or 'empty' in msg.lower() or 'ready' in msg.lower():
+                    log.info(f'📤 ADF empty after {page_num - 1} pages')
+                else:
+                    log.error(f'❌ Page {page_num} error: {e}')
+                break
+
+        return paths
+
+    except Exception as e:
+        log.error(f'❌ WIA scan error: {e}')
+        return paths
+    finally:
+        try:
+            pythoncom.CoUninitialize()
+        except Exception:
+            pass
+
+
 def scan_via_wia(output_dir: Path, color: str = 'color', dpi: int = 200,
                  preferred_scanner: str = '', source: str = 'feeder') -> Optional[Path]:
     """
@@ -208,6 +316,55 @@ def create_app(scan_token: str, scans_folder: Path, preferred_scanner: str = '',
         if request.headers.get('X-Scan-Token') != scan_token:
             return jsonify({'error': 'unauthorized'}), 401
         return jsonify({'scanners': list_scanners()})
+
+    @app.route('/scan-batch', methods=['POST', 'OPTIONS'])
+    def scan_batch():
+        """Scan all pages from feeder. Returns JSON with array of base64 images."""
+        if request.method == 'OPTIONS':
+            return '', 204
+
+        if request.headers.get('X-Scan-Token') != scan_token:
+            return jsonify({'error': 'unauthorized'}), 401
+
+        body = request.get_json(silent=True) or {}
+        color = body.get('color', 'color')
+        dpi = int(body.get('dpi', 200))
+        source = body.get('source', default_source)
+
+        log.info(f'📥 Batch scan: source={source}, color={color}, dpi={dpi}')
+
+        tmp_dir = Path(tempfile.gettempdir()) / 'rawaes_scans'
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        paths = scan_via_wia_multi(
+            tmp_dir, color=color, dpi=dpi,
+            preferred_scanner=preferred_scanner, source=source,
+        )
+
+        if not paths:
+            return jsonify({
+                'error': 'no_pages',
+                'message': 'لم يتم مسح أي صفحة. تأكد من وجود ورق في الدرج وأن السكانر جاهز.',
+            }), 500
+
+        # Convert all to base64
+        import base64
+        pages = []
+        for fp in paths:
+            try:
+                with open(fp, 'rb') as f:
+                    data = f.read()
+                pages.append({
+                    'name': fp.name,
+                    'mime': 'image/jpeg',
+                    'data': base64.b64encode(data).decode('ascii'),
+                })
+                fp.unlink(missing_ok=True)
+            except Exception as e:
+                log.warning(f'Could not read {fp}: {e}')
+
+        log.info(f'✅ Returning {len(pages)} pages to browser')
+        return jsonify({'pages': pages, 'count': len(pages)})
 
     @app.route('/scan', methods=['POST', 'OPTIONS'])
     def scan():

@@ -30,6 +30,15 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
         }
     }, [open]);
 
+    // Convert base64 to Blob
+    const base64ToBlob = (base64, mime = 'image/jpeg') => {
+        const bytes = atob(base64);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        return new Blob([arr], { type: mime });
+    };
+
+    // Scan all pages from ADF in one batch
     const scanPage = async () => {
         setScanning(true);
         setError(null);
@@ -37,13 +46,13 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
             const healthRes = await fetch(`${SCAN_BRIDGE_URL}/health`).catch(() => null);
             if (!healthRes || !healthRes.ok) throw new Error('CONNECTION');
 
-            const res = await fetch(`${SCAN_BRIDGE_URL}/scan`, {
+            const res = await fetch(`${SCAN_BRIDGE_URL}/scan-batch`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Scan-Token': scanToken,
                 },
-                body: JSON.stringify({ color, dpi }),
+                body: JSON.stringify({ color, dpi, source: 'feeder' }),
             });
 
             if (!res.ok) {
@@ -51,9 +60,21 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
                 throw new Error(data.message || `فشل المسح (${res.status})`);
             }
 
-            const blob = await res.blob();
-            const dataUrl = URL.createObjectURL(blob);
-            setPages(prev => [...prev, { blob, dataUrl, id: Date.now() + Math.random() }]);
+            const result = await res.json();
+            if (!result.pages || result.pages.length === 0) {
+                throw new Error('لم يتم مسح أي صفحة. تأكد من وجود ورق في الدرج.');
+            }
+
+            const newPages = result.pages.map(p => {
+                const blob = base64ToBlob(p.data, p.mime);
+                return {
+                    blob,
+                    dataUrl: URL.createObjectURL(blob),
+                    id: Date.now() + Math.random(),
+                };
+            });
+
+            setPages(prev => [...prev, ...newPages]);
         } catch (err) {
             setError(
                 err.message === 'CONNECTION'
@@ -145,7 +166,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
                         </div>
                         <div>
                             <h3 className="font-bold">مسح ضوئي متعدد الصفحات</h3>
-                            <p className="text-xs text-white/70">سيتم حفظ الصفحات في ملف PDF واحد</p>
+                            <p className="text-xs text-white/70">ضع كل الأوراق في الدرج وسيمسحها دفعة واحدة</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg" disabled={generating}>
@@ -204,8 +225,8 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
                     {scanning && (
                         <div className="flex flex-col items-center justify-center py-10 bg-amber-50 border-2 border-dashed border-amber-300 rounded-xl">
                             <Loader2 size={36} className="animate-spin text-amber-500 mb-3" />
-                            <p className="font-medium text-amber-700">جاري المسح من الجهاز...</p>
-                            <p className="text-xs text-amber-600 mt-1">انتظر حتى تنتهي الصفحة</p>
+                            <p className="font-medium text-amber-700">جاري المسح من الدرج...</p>
+                            <p className="text-xs text-amber-600 mt-1">يتم سحب الأوراق ومسحها — قد يستغرق دقائق حسب العدد</p>
                         </div>
                     )}
 
@@ -247,7 +268,7 @@ export default function MultiPageScan({ open, onClose, onComplete, scanToken, co
                             ? <><Loader2 size={15} className="animate-spin" /> جاري المسح...</>
                             : pages.length === 0
                                 ? <><ScanLine size={15} /> ابدأ المسح</>
-                                : <><Plus size={15} /> صفحة أخرى</>
+                                : <><Plus size={15} /> مسح أوراق إضافية</>
                         }
                     </button>
 
