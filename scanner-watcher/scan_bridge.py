@@ -123,45 +123,70 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                 log.error(f'❌ Flatbed scan error: {e}')
             return paths
 
-        # For feeder: cache item ONCE, set properties ONCE, then loop Transfer
+        # For feeder: try multiple approaches
         item = device.Items(1)
         for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
                                 6147: dpi, 6148: dpi}.items():
             _set_property(item.Properties, prop_id, value)
 
-        page_num = 0
         start_time = time.time()
-        consecutive_errors = 0
 
-        while page_num < max_pages:
-            page_num += 1
-            page_start = time.time()
+        # ─── Approach 1: Multi-page TIFF (standard WIA pattern for ADF) ───
+        # Set PAGES = 0 (scan ALL pages from feeder)
+        _set_property(device.Properties, WIA_DPS_PAGES, 0)
+        WIA_FORMAT_TIFF = '{B96B3CB1-0728-11D3-9D7B-0000F81EF32E}'
+
+        try:
+            log.info('🔄 Trying multi-page TIFF mode (all pages at once)...')
+            tiff_path = output_dir / f'scan-{int(time.time() * 1000)}.tif'
+            image = item.Transfer(WIA_FORMAT_TIFF)
+            image.SaveFile(str(tiff_path))
+            log.info(f'   TIFF saved ({tiff_path.stat().st_size // 1024} KB)')
+
+            # Split TIFF into individual JPEGs using Pillow
             try:
-                image = item.Transfer(WIA_FORMAT_JPEG)
-                fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
-                image.SaveFile(str(fp))
-                paths.append(fp)
-                consecutive_errors = 0
-                log.info(f'✅ Page {page_num} ({time.time() - page_start:.1f}s)')
-            except Exception as e:
-                msg = str(e).lower()
-                # Detect end-of-feeder
-                end_indicators = ['paper', 'empty', 'ready', 'no documents', '80210003', '80210064', 'feeder',
-                                  '80070057', 'parameter is incorrect']
-                if any(c in msg for c in end_indicators):
-                    log.info(f'📤 ADF finished — {page_num - 1} pages in {time.time() - start_time:.1f}s')
+                from PIL import Image as PILImage
+                with PILImage.open(tiff_path) as img:
+                    n_frames = getattr(img, 'n_frames', 1)
+                    log.info(f'   Extracted {n_frames} pages from TIFF')
+                    for frame_idx in range(n_frames):
+                        img.seek(frame_idx)
+                        page_path = output_dir / f'scan-{int(time.time() * 1000)}-{frame_idx + 1}.jpg'
+                        img.convert('RGB').save(str(page_path), 'JPEG', quality=85)
+                        paths.append(page_path)
+                        log.info(f'✅ Page {frame_idx + 1} extracted')
+                tiff_path.unlink(missing_ok=True)
+                log.info(f'📤 Done — {len(paths)} pages in {time.time() - start_time:.1f}s')
+                return paths
+            except ImportError:
+                log.error('Pillow not installed: pip install pillow')
+                return paths
+        except Exception as e:
+            msg = str(e).lower()
+            log.warning(f'⚠️ Multi-page TIFF failed: {e}')
+
+            # ─── Approach 2: Loop one-by-one (fallback) ───
+            log.info('🔄 Falling back to single-page loop...')
+            _set_property(device.Properties, WIA_DPS_PAGES, 1)
+
+            page_num = 0
+            while page_num < max_pages:
+                page_num += 1
+                try:
+                    image = item.Transfer(WIA_FORMAT_JPEG)
+                    fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
+                    image.SaveFile(str(fp))
+                    paths.append(fp)
+                    log.info(f'✅ Page {page_num}')
+                except Exception as e2:
+                    msg2 = str(e2).lower()
+                    end_indicators = ['paper', 'empty', 'ready', 'no documents', '80210003',
+                                      '80210064', 'feeder', '80070057', 'parameter is incorrect']
+                    if any(c in msg2 for c in end_indicators):
+                        log.info(f'📤 ADF finished — {page_num - 1} pages')
+                    else:
+                        log.error(f'❌ Page {page_num} error: {e2}')
                     break
-                # Generic error
-                consecutive_errors += 1
-                if page_num == 1:
-                    log.error(f'❌ Page 1 error: {e}')
-                    log.error('   جرب: إغلاق برامج السكانر / إعادة تشغيل WIA service')
-                    break
-                if consecutive_errors >= 2:
-                    log.warning(f'⚠️ Stopping after {page_num - 1} pages')
-                    break
-                # Try once more
-                time.sleep(0.5)
 
         return paths
 
