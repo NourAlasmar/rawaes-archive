@@ -51,22 +51,32 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
             log.error('No WIA scanner found')
             return []
 
-        # Find scanner
+        # Find scanner — prefer first match, skip "#N" duplicates
         device_info = None
         all_names = []
+        candidates = []
         for i in range(1, devices.Count + 1):
             d = devices(i)
             name = d.Properties('Name').Value
             all_names.append(name)
             if preferred_scanner and preferred_scanner.lower() in name.lower():
-                device_info = d
-                break
-        if not device_info:
+                candidates.append((d, name))
+
+        if candidates:
+            # Prefer one without "#" suffix (original, not duplicate)
+            for d, name in candidates:
+                if '#' not in name:
+                    device_info = d
+                    break
+            if not device_info:
+                device_info = candidates[0][0]
+        else:
             if preferred_scanner:
-                log.warning(f'⚠️ Scanner matching "{preferred_scanner}" not found. Available: {all_names}')
+                log.warning(f'⚠️ "{preferred_scanner}" not found. Available: {all_names}')
             device_info = devices(1)
 
-        log.info(f'🖨️ Using scanner: {device_info.Properties("Name").Value}')
+        scanner_name = device_info.Properties('Name').Value
+        log.info(f'🖨️ Using scanner: {scanner_name}')
         device = device_info.Connect()
 
         WIA_DPS_DOCUMENT_HANDLING_SELECT = 3088
@@ -79,19 +89,14 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
             if _set_property(device.Properties, WIA_DPS_DOCUMENT_HANDLING_SELECT, source_value):
                 log.info(f'📥 Source: {source}')
 
-        item = device.Items(1)
-        properties_map = {
-            6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
-            6147: dpi,
-            6148: dpi,
-        }
-        for prop_id, value in properties_map.items():
-            _set_property(item.Properties, prop_id, value)
-
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # For flatbed: only one page
         if source == 'flatbed':
+            item = device.Items(1)
+            for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
+                                    6147: dpi, 6148: dpi}.items():
+                _set_property(item.Properties, prop_id, value)
             try:
                 image = item.Transfer(WIA_FORMAT_JPEG)
                 fp = output_dir / f'scan-{int(time.time() * 1000)}-1.jpg'
@@ -102,31 +107,40 @@ def scan_via_wia_multi(output_dir: Path, color: str = 'color', dpi: int = 200,
                 log.error(f'❌ Flatbed scan error: {e}')
             return paths
 
-        # For feeder: scan one page at a time
-        # Set PAGES property ONCE before loop (not in each iteration)
-        _set_property(device.Properties, WIA_DPS_PAGES, 1)
-
+        # For feeder: each call gets fresh item
         page_num = 0
         start_time = time.time()
         while page_num < max_pages:
             page_num += 1
             page_start = time.time()
             try:
+                # Get fresh item for each page (HP ScanJet works better this way)
+                item = device.Items(1)
+
+                # Set scan properties
+                for prop_id, value in {6146: 1 if color == 'gray' else 2 if color == 'bw' else 0,
+                                        6147: dpi, 6148: dpi}.items():
+                    _set_property(item.Properties, prop_id, value)
+
                 image = item.Transfer(WIA_FORMAT_JPEG)
                 fp = output_dir / f'scan-{int(time.time() * 1000)}-{page_num}.jpg'
                 image.SaveFile(str(fp))
                 paths.append(fp)
-                page_time = time.time() - page_start
-                log.info(f'✅ Page {page_num} saved ({page_time:.1f}s)')
+                log.info(f'✅ Page {page_num} ({time.time() - page_start:.1f}s)')
             except Exception as e:
-                msg = str(e)
-                # Common end-of-feeder errors
-                end_codes = ['0x80210003', '0x80210064', 'paper', 'empty', 'ready', 'no documents']
-                if any(c in msg.lower() for c in end_codes):
-                    log.info(f'📤 ADF finished — total {page_num - 1} pages in {time.time() - start_time:.1f}s')
+                msg = str(e).lower()
+                # Detect end-of-feeder
+                if any(c in msg for c in ['paper', 'empty', 'ready', 'no documents', '80210003', '80210064', 'feeder']):
+                    log.info(f'📤 ADF finished — {page_num - 1} pages in {time.time() - start_time:.1f}s')
+                    break
+                # Communication error - try once more then give up
+                if page_num == 1:
+                    log.error(f'❌ Communication error: {e}')
+                    log.error('   جرب: 1) إغلاق برامج السكانر الأخرى 2) إعادة تشغيل WIA service 3) فصل وإعادة وصل السكانر')
+                    break
                 else:
-                    log.error(f'❌ Page {page_num} error: {e}')
-                break
+                    log.warning(f'⚠️ Stopping after {page_num - 1} pages due to: {e}')
+                    break
 
         return paths
 
