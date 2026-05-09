@@ -156,29 +156,21 @@ export default function ArchiveLayout({ children, title = '' }) {
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarOpen ? 'lg:mr-64' : 'lg:mr-16'}`}>
                 {/* Top bar */}
                 <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <button
-                            className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
-                            onClick={() => setMobileOpen(true)}
-                        >
-                            <Menu size={20} />
-                        </button>
-                        <h1 className="text-lg font-bold text-gray-800">{title}</h1>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {can['documents.create'] && (
-                            <Link
-                                href="/archive/documents/create"
-                                className="hidden sm:flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                            >
-                                <span>+ رفع مستند</span>
-                            </Link>
-                        )}
-                        <div className="relative" ref={notifRef}>
-                            <button
-                                onClick={() => setNotifOpen(!notifOpen)}
-                                className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-                            >
+	                    <div className="flex items-center gap-3">
+	                        <button
+	                            className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
+	                            onClick={() => setMobileOpen(true)}
+	                        >
+	                            <Menu size={20} />
+	                        </button>
+	                        <h1 className="text-lg font-bold text-gray-800">{title}</h1>
+	                    </div>
+	                    <div className="flex items-center gap-2">
+	                        <div className="relative" ref={notifRef}>
+	                            <button
+	                                onClick={() => setNotifOpen(!notifOpen)}
+	                                className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+	                            >
                                 <Bell size={20} />
                                 {notifications?.unread_count > 0 && (
                                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
