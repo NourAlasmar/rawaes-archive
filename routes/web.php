@@ -5,6 +5,7 @@ use App\Http\Controllers\Archive\DocumentController;
 use App\Http\Controllers\Archive\DocumentTypeController;
 use App\Http\Controllers\Archive\FolderController;
 use App\Http\Controllers\Archive\SectorController;
+use App\Http\Controllers\Archive\TrashController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -52,6 +53,11 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
     Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
+
+    // Trash (soft-deleted documents)
+    Route::get('/trash/documents', [TrashController::class, 'index'])->name('documents.trash');
+    Route::put('/trash/documents/{id}/restore', [TrashController::class, 'restore'])->name('documents.restore');
+    Route::delete('/trash/documents/{id}', [TrashController::class, 'forceDestroy'])->name('documents.forceDelete');
 
     // Scan Inbox
     Route::get('/scans', [\App\Http\Controllers\Archive\ScanInboxController::class, 'index'])->name('scans.index');

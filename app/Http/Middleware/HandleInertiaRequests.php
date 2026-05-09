@@ -40,6 +40,9 @@ class HandleInertiaRequests extends Middleware
                 'can' => $user ? [
                     'documents.create' => $user->can('documents.create'),
                     'documents.delete' => $user->can('documents.delete'),
+                    'documents.trash.view' => $user->can('documents.trash.view'),
+                    'documents.restore' => $user->can('documents.restore'),
+                    'documents.force_delete' => $user->can('documents.force_delete'),
                     'folders.manage' => $user->can('folders.manage'),
                     'sectors.manage' => $user->can('sectors.manage'),
                     'users.manage' => $user->can('users.manage'),

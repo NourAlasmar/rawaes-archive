@@ -7,12 +7,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class ArchiveDocument extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
+        'serial_number',
         'title', 'document_number', 'folder_id', 'document_type_id', 'sector_id',
         'uploaded_by', 'file_path', 'file_name', 'file_extension', 'file_size',
         'mime_type', 'issuing_entity', 'issue_date', 'expiry_date', 'physical_location',
@@ -28,6 +30,18 @@ class ArchiveDocument extends Model
     ];
 
     protected $appends = ['is_expired', 'is_expiring_soon', 'file_size_formatted'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $doc) {
+            if (!empty($doc->serial_number)) {
+                return;
+            }
+
+            $max = (int) DB::table('archive_documents')->max('serial_number');
+            $doc->serial_number = $max + 1;
+        });
+    }
 
     public function folder(): BelongsTo
     {

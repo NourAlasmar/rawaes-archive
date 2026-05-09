@@ -34,6 +34,8 @@ class AuditLogController extends Controller
         'scan_received'  => 'مسح ضوئي جديد',
         'scan_assigned'  => 'تصنيف مسح ضوئي',
         'scan_deleted'   => 'حذف مسح ضوئي',
+        'document_restored' => 'استرجاع مستند',
+        'document_force_deleted' => 'حذف نهائي لمستند',
     ];
 
     public function index(Request $request)

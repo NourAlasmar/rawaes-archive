@@ -25,7 +25,8 @@ class DocumentController extends Controller
         $user = auth()->user();
         $allowedSectorIds = $user->accessibleSectorIds(); // [] = full access
 
-        $query = ArchiveDocument::with(['folder', 'documentType', 'sector', 'uploader'])
+        $query = ArchiveDocument::withTrashed()
+            ->with(['folder', 'documentType', 'sector', 'uploader'])
             // Sector scoping based on accessible sectors
             ->when(
                 !empty($allowedSectorIds),
@@ -48,7 +49,7 @@ class DocumentController extends Controller
             ->when($request->expiring_soon === 'true', fn($q) => $q->expiringSoon())
             ->when($request->date_from, fn($q) => $q->where('created_at', '>=', $request->date_from))
             ->when($request->date_to, fn($q) => $q->where('created_at', '<=', $request->date_to))
-            ->latest()
+            ->orderByDesc('serial_number')
             ->paginate(20)
             ->withQueryString();
 

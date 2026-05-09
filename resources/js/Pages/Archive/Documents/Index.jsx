@@ -26,84 +26,99 @@ function DocumentRow({ doc, can }) {
 
     const isExpired = doc.is_expired;
     const isExpiringSoon = doc.is_expiring_soon;
+    const isDeleted = !!doc.deleted_at;
 
     return (
         <tr className="hover:bg-gray-50 transition-colors">
             <td className="px-4 py-3 text-sm text-gray-600 font-mono" dir="ltr">
-                {doc.serial}
+                {isDeleted ? '' : (doc.serial_number ?? '—')}
             </td>
-            <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${isExpired ? 'bg-red-50' : isExpiringSoon ? 'bg-amber-50' : 'bg-blue-50'}`}>
-                        <FileText size={16} className={isExpired ? 'text-red-500' : isExpiringSoon ? 'text-amber-500' : 'text-blue-500'} />
-                    </div>
-                    <div>
-                        <p className="font-medium text-gray-800 text-sm">{doc.title}</p>
-                        {doc.document_number && (
-                            <p className="text-xs text-gray-500">{doc.document_number}</p>
-                        )}
-                    </div>
-                </div>
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-600">{doc.sector?.name ?? '—'}</td>
-            <td className="px-4 py-3 text-sm text-gray-600">{doc.document_type?.name ?? '—'}</td>
-            <td className="px-4 py-3">
-                {doc.expiry_date ? (
-                    <div className="flex items-center gap-1">
-                        {isExpired && <AlertTriangle size={14} className="text-red-500" />}
-                        {isExpiringSoon && !isExpired && <Clock size={14} className="text-amber-500" />}
-                        <span className={`text-xs ${isExpired ? 'text-red-600 font-medium' : isExpiringSoon ? 'text-amber-600' : 'text-gray-600'}`}>
-                            {doc.expiry_date}
+            {isDeleted ? (
+                <>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
+                </>
+            ) : (
+                <>
+                    <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${isExpired ? 'bg-red-50' : isExpiringSoon ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                                <FileText size={16} className={isExpired ? 'text-red-500' : isExpiringSoon ? 'text-amber-500' : 'text-blue-500'} />
+                            </div>
+                            <div>
+                                <p className="font-medium text-gray-800 text-sm">{doc.title}</p>
+                                {doc.document_number && (
+                                    <p className="text-xs text-gray-500">{doc.document_number}</p>
+                                )}
+                            </div>
+                        </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{doc.sector?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{doc.document_type?.name ?? '—'}</td>
+                    <td className="px-4 py-3">
+                        {doc.expiry_date ? (
+                            <div className="flex items-center gap-1">
+                                {isExpired && <AlertTriangle size={14} className="text-red-500" />}
+                                {isExpiringSoon && !isExpired && <Clock size={14} className="text-amber-500" />}
+                                <span className={`text-xs ${isExpired ? 'text-red-600 font-medium' : isExpiringSoon ? 'text-amber-600' : 'text-gray-600'}`}>
+                                    {doc.expiry_date}
+                                </span>
+                            </div>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[doc.status]}`}>
+                            {statusLabels[doc.status]}
                         </span>
-                    </div>
-                ) : <span className="text-gray-400 text-xs">—</span>}
-            </td>
-            <td className="px-4 py-3">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[doc.status]}`}>
-                    {statusLabels[doc.status]}
-                </span>
-            </td>
-            <td className="px-4 py-3 text-sm text-gray-500">{doc.uploader?.name ?? '—'}</td>
-            <td className="px-4 py-3">
-                <div className="flex items-center gap-1">
-                    <Link
-                        href={`/archive/documents/${doc.id}`}
-                        className="p-1.5 rounded hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors"
-                        title="عرض"
-                    >
-                        <Eye size={16} />
-                    </Link>
-                    <Link
-                        href={`/archive/documents/${doc.id}/download`}
-                        className="p-1.5 rounded hover:bg-green-50 text-gray-500 hover:text-green-600 transition-colors"
-                        title="تحميل"
-                    >
-                        <Download size={16} />
-                    </Link>
-                    {can['documents.create'] && (
-                        <Link
-                            href={`/archive/documents/${doc.id}/edit`}
-                            className="p-1.5 rounded hover:bg-amber-50 text-gray-500 hover:text-amber-600 transition-colors"
-                            title="تعديل"
-                        >
-                            <Edit2 size={16} />
-                        </Link>
-                    )}
-                    {can['documents.delete'] && (
-                        <button
-                            onClick={() => {
-                                if (confirm('هل أنت متأكد من حذف هذا المستند؟')) {
-                                    router.delete(`/archive/documents/${doc.id}`);
-                                }
-                            }}
-                            className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
-                            title="حذف"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    )}
-                </div>
-            </td>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{doc.uploader?.name ?? '—'}</td>
+                    <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                            <Link
+                                href={`/archive/documents/${doc.id}`}
+                                className="p-1.5 rounded hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors"
+                                title="عرض"
+                            >
+                                <Eye size={16} />
+                            </Link>
+                            <Link
+                                href={`/archive/documents/${doc.id}/download`}
+                                className="p-1.5 rounded hover:bg-green-50 text-gray-500 hover:text-green-600 transition-colors"
+                                title="تحميل"
+                            >
+                                <Download size={16} />
+                            </Link>
+                            {can['documents.create'] && (
+                                <Link
+                                    href={`/archive/documents/${doc.id}/edit`}
+                                    className="p-1.5 rounded hover:bg-amber-50 text-gray-500 hover:text-amber-600 transition-colors"
+                                    title="تعديل"
+                                >
+                                    <Edit2 size={16} />
+                                </Link>
+                            )}
+                            {can['documents.delete'] && (
+                                <button
+                                    onClick={() => {
+                                        if (confirm('هل أنت متأكد من حذف هذا المستند؟')) {
+                                            router.delete(`/archive/documents/${doc.id}`);
+                                        }
+                                    }}
+                                    className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                                    title="حذف"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            )}
+                        </div>
+                    </td>
+                </>
+            )}
         </tr>
     );
 }
@@ -129,9 +144,9 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
 
     const stats = [
         { label: 'إجمالي المستندات', value: documents.total, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'المستندات النشطة', value: documents.data?.filter(d => d.status === 'active').length, color: 'text-green-600', bg: 'bg-green-50' },
-        { label: 'منتهية الصلاحية', value: documents.data?.filter(d => d.is_expired).length, color: 'text-red-600', bg: 'bg-red-50' },
-        { label: 'تنتهي قريباً', value: documents.data?.filter(d => d.is_expiring_soon).length, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { label: 'المستندات النشطة', value: documents.data?.filter(d => !d.deleted_at && d.status === 'active').length, color: 'text-green-600', bg: 'bg-green-50' },
+        { label: 'منتهية الصلاحية', value: documents.data?.filter(d => !d.deleted_at && d.is_expired).length, color: 'text-red-600', bg: 'bg-red-50' },
+        { label: 'تنتهي قريباً', value: documents.data?.filter(d => !d.deleted_at && d.is_expiring_soon).length, color: 'text-amber-600', bg: 'bg-amber-50' },
     ];
 
     return (
@@ -256,18 +271,13 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
 	                                ))}
 	                            </tr>
 	                        </thead>
-	                        <tbody className="divide-y divide-gray-50">
-	                            {documents.data?.length > 0 ? (
-	                                documents.data.map((doc, idx) => {
-	                                    const perPage = documents.per_page ?? documents.meta?.per_page ?? 20;
-	                                    const currentPage = documents.current_page ?? documents.meta?.current_page ?? 1;
-	                                    const serial = (currentPage - 1) * perPage + idx + 1;
-	                                    return <DocumentRow key={doc.id} doc={{ ...doc, serial }} can={can} />;
-	                                })
-	                            ) : (
-	                                <tr>
-	                                    <td colSpan={8} className="px-4 py-16 text-center">
-	                                        <FileText size={40} className="mx-auto text-gray-300 mb-3" />
+		                        <tbody className="divide-y divide-gray-50">
+		                            {documents.data?.length > 0 ? (
+		                                documents.data.map(doc => <DocumentRow key={doc.id} doc={doc} can={can} />)
+		                            ) : (
+		                                <tr>
+		                                    <td colSpan={8} className="px-4 py-16 text-center">
+		                                        <FileText size={40} className="mx-auto text-gray-300 mb-3" />
 	                                        <p className="text-gray-500 font-medium">لا توجد مستندات</p>
                                         <p className="text-gray-400 text-sm mt-1">ابدأ برفع أول مستند</p>
                                         <Link

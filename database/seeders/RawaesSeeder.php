@@ -25,6 +25,7 @@ class RawaesSeeder extends Seeder
         $permissions = [
             'documents.view', 'documents.create', 'documents.edit',
             'documents.delete', 'documents.download', 'documents.print',
+            'documents.trash.view', 'documents.restore', 'documents.force_delete',
             'folders.manage', 'sectors.manage', 'users.manage',
             'audit.view', 'reports.view',
         ];
@@ -36,6 +37,7 @@ class RawaesSeeder extends Seeder
         Role::findByName('archive-manager')->givePermissionTo([
             'documents.view', 'documents.create', 'documents.edit',
             'documents.download', 'folders.manage', 'audit.view', 'reports.view',
+            'documents.trash.view', 'documents.restore',
         ]);
         Role::findByName('employee')->givePermissionTo([
             'documents.view', 'documents.create', 'documents.download',
