@@ -102,12 +102,28 @@ function StatCard({ icon: Icon, label, value, color, accent, change }) {
 }
 
 // ─────────────────────────────
-export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, byType, topUploaders, activityCounts }) {
+export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, byType, topUploaders, activityCounts, sectors, documentTypes, uploaders, departments }) {
     const [from, setFrom] = useState(filters.from);
     const [to, setTo] = useState(filters.to);
+    const [sectorId, setSectorId] = useState(filters.sector_id ?? '');
+    const [typeId, setTypeId] = useState(filters.type_id ?? '');
+    const [uploaderId, setUploaderId] = useState(filters.uploader_id ?? '');
+    const [department, setDepartment] = useState(filters.department ?? '');
 
-    const applyFilters = () => router.get('/reports', { from, to }, { preserveState: true });
-    const exportUrl = `/reports/export?from=${filters.from}&to=${filters.to}`;
+    const applyFilters = () => router.get('/reports', {
+        from,
+        to,
+        sector_id: sectorId || undefined,
+        type_id: typeId || undefined,
+        uploader_id: uploaderId || undefined,
+        department: department || undefined,
+    }, { preserveState: true });
+
+    const exportUrl = `/reports/export?from=${filters.from}&to=${filters.to}`
+        + (filters.sector_id ? `&sector_id=${encodeURIComponent(filters.sector_id)}` : '')
+        + (filters.type_id ? `&type_id=${encodeURIComponent(filters.type_id)}` : '')
+        + (filters.uploader_id ? `&uploader_id=${encodeURIComponent(filters.uploader_id)}` : '')
+        + (filters.department ? `&department=${encodeURIComponent(filters.department)}` : '');
 
     // Quick presets
     const setPreset = (days) => {
@@ -117,7 +133,14 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
         const f = past.toISOString().split('T')[0];
         const t = today.toISOString().split('T')[0];
         setFrom(f); setTo(t);
-        router.get('/reports', { from: f, to: t }, { preserveState: true });
+        router.get('/reports', {
+            from: f,
+            to: t,
+            sector_id: sectorId || undefined,
+            type_id: typeId || undefined,
+            uploader_id: uploaderId || undefined,
+            department: department || undefined,
+        }, { preserveState: true });
     };
 
     // Format trend data for chart
@@ -169,7 +192,7 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="flex items-center gap-2 text-gray-600 text-sm font-medium">
                         <Filter size={16} className="text-amber-500" />
-                        <span>الفترة:</span>
+                        <span>الفلاتر:</span>
                     </div>
                     <div>
                         <label className="block text-xs text-gray-500 mb-1">من</label>
@@ -184,6 +207,50 @@ export default function ReportsIndex({ filters, totals, uploadsTrend, bySector, 
                             type="date" value={to} onChange={e => setTo(e.target.value)}
                             className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
                         />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">القطاع</label>
+                        <select
+                            value={sectorId}
+                            onChange={(e) => setSectorId(e.target.value)}
+                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                        >
+                            <option value="">كل القطاعات</option>
+                            {sectors?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">نوع المستند</label>
+                        <select
+                            value={typeId}
+                            onChange={(e) => setTypeId(e.target.value)}
+                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                        >
+                            <option value="">كل الأنواع</option>
+                            {documentTypes?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">المستخدم</label>
+                        <select
+                            value={uploaderId}
+                            onChange={(e) => setUploaderId(e.target.value)}
+                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                        >
+                            <option value="">كل المستخدمين</option>
+                            {uploaders?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-500 mb-1">القسم</label>
+                        <select
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400"
+                        >
+                            <option value="">كل الأقسام</option>
+                            {departments?.map((d) => <option key={d} value={d}>{d}</option>)}
+                        </select>
                     </div>
                     <button
                         onClick={applyFilters}
