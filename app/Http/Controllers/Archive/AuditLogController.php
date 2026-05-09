@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Archive;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -38,9 +39,22 @@ class AuditLogController extends Controller
         'document_force_deleted' => 'حذف نهائي لمستند',
     ];
 
+    private const TAB_ACTIONS = [
+        // Incoming = documents entering the system
+        'incoming' => ['upload', 'scan_received', 'scan_assigned', 'document_restored'],
+        // Outgoing = actions that take documents out of the system
+        'outgoing' => ['download', 'document_emailed', 'documents.print', 'audit_export'],
+    ];
+
     public function index(Request $request)
     {
+        $tab = $request->get('tab'); // incoming|outgoing
+
         $logs = AuditLog::with('user')
+            ->when(
+                $tab && isset(self::TAB_ACTIONS[$tab]),
+                fn($q) => $q->whereIn('action', self::TAB_ACTIONS[$tab])
+            )
             ->when($request->action, fn($q) => $q->where('action', $request->action))
             ->when($request->user_id, fn($q) => $q->where('user_id', $request->user_id))
             ->when($request->search, fn($q) => $q->where('description', 'like', "%{$request->search}%"))
@@ -52,13 +66,20 @@ class AuditLogController extends Controller
 
         return Inertia::render('Archive/AuditLog/Index', [
             'logs' => $logs,
-            'filters' => $request->only(['action', 'user_id', 'search', 'date_from', 'date_to']),
+            'filters' => $request->only(['tab', 'action', 'user_id', 'search', 'date_from', 'date_to']),
+            'users' => User::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     public function export(Request $request)
     {
+        $tab = $request->get('tab'); // incoming|outgoing
+
         $query = AuditLog::with('user')
+            ->when(
+                $tab && isset(self::TAB_ACTIONS[$tab]),
+                fn($q) => $q->whereIn('action', self::TAB_ACTIONS[$tab])
+            )
             ->when($request->action, fn($q) => $q->where('action', $request->action))
             ->when($request->user_id, fn($q) => $q->where('user_id', $request->user_id))
             ->when($request->search, fn($q) => $q->where('description', 'like', "%{$request->search}%"))
@@ -89,7 +110,7 @@ class AuditLogController extends Controller
             fputcsv($out, [
                 '#', 'الإجراء', 'المستخدم', 'البريد الإلكتروني',
                 'عنوان IP', 'الوصف', 'النوع', 'المعرّف',
-                'التاريخ', 'الوقت',
+                'التاريخ', 'الوقت', 'User-Agent',
             ]);
 
             $query->chunk(500, function ($logs) use ($out) {
@@ -105,6 +126,7 @@ class AuditLogController extends Controller
                         $log->auditable_id,
                         $log->created_at->format('Y-m-d'),
                         $log->created_at->format('H:i:s'),
+                        $log->user_agent ?? '',
                     ]);
                 }
             });
