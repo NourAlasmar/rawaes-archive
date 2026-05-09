@@ -82,6 +82,7 @@ class ScanInboxController extends Controller
             'document_type_id' => $validated['document_type_id'],
             'sector_id' => $validated['sector_id'],
             'uploaded_by' => auth()->id(),
+            'upload_source' => 'scanner',
             'file_path' => $newPath,
             'file_name' => $pendingScan->original_name,
             'file_extension' => $pendingScan->file_extension,

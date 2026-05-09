@@ -135,6 +135,7 @@ class DocumentController extends Controller
                 'document_type_id' => $validated['document_type_id'],
                 'sector_id' => $validated['sector_id'],
                 'uploaded_by' => auth()->id(),
+                'upload_source' => 'web',
                 'file_path' => $path,
                 'file_name' => $file->getClientOriginalName(),
                 'file_extension' => $file->getClientOriginalExtension(),

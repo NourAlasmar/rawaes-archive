@@ -33,6 +33,8 @@ class DashboardController extends Controller
             );
 
         $totalDocs    = $base()->count();
+        $electronicDocs = $base()->where('upload_source', 'web')->count();
+        $paperDocs = $base()->where('upload_source', 'scanner')->count();
         $expiringSoon = $base()->expiringSoon(30)->count();
         $expired      = $base()->expired()->count();
         $confidential = $base()->where('is_confidential', true)->count();
@@ -97,6 +99,8 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'stats' => [
                 'total'              => $totalDocs,
+                'total_electronic'   => $electronicDocs,
+                'total_paper'        => $paperDocs,
                 'expiring_soon'      => $expiringSoon,
                 'expired'            => $expired,
                 'confidential'       => $confidential,

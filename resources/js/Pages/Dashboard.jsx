@@ -89,6 +89,9 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                     </div>
                     <p className="text-3xl font-bold text-gray-800">{stats.total.toLocaleString('en-GB')}</p>
                     <p className="text-sm text-gray-500 mt-1">المستندات المتاحة لك</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        إلكترونية: {stats.total_electronic?.toLocaleString('en-GB') ?? '0'} · ورقية: {stats.total_paper?.toLocaleString('en-GB') ?? '0'}
+                    </p>
                 </Link>
 
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -196,7 +199,7 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                                     </p>
                                 </div>
                                 <div className="text-left shrink-0">
-                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('en-GB')}</p>
+                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleString('en-GB')}</p>
                                     {doc.uploader && (
                                         <p className="text-xs text-gray-400 mt-0.5">{doc.uploader.name}</p>
                                     )}
@@ -350,14 +353,15 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
 
             {/* Top Stats — Big & Beautiful */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard
-                    icon={FileText}
-                    label="إجمالي المستندات"
-                    value={stats.total}
-                    color="text-blue-600"
-                    accent="bg-blue-50"
-                    href="/archive/documents"
-                />
+                    <StatCard
+                        icon={FileText}
+                        label="إجمالي المستندات"
+                        value={stats.total}
+                        color="text-blue-600"
+                        accent="bg-blue-50"
+                        href="/archive/documents"
+                        sub={`إلكترونية: ${(stats.total_electronic ?? 0).toLocaleString('en-GB')} · ورقية: ${(stats.total_paper ?? 0).toLocaleString('en-GB')}`}
+                    />
                 <StatCard
                     icon={Clock}
                     label="تنتهي خلال 30 يوم"
@@ -466,7 +470,7 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                                     <p className="text-xs text-gray-500">{doc.sector?.name} · {doc.document_type?.name}</p>
                                 </div>
                                 <div className="text-left shrink-0">
-                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleDateString('en-GB')}</p>
+                                    <p className="text-xs text-gray-400">{new Date(doc.created_at).toLocaleString('en-GB')}</p>
                                     {doc.uploader && <p className="text-xs text-gray-400 mt-0.5">{doc.uploader.name}</p>}
                                 </div>
                             </Link>

@@ -16,7 +16,7 @@ class ArchiveDocument extends Model
     protected $fillable = [
         'serial_number',
         'title', 'document_number', 'folder_id', 'document_type_id', 'sector_id',
-        'uploaded_by', 'file_path', 'file_name', 'file_extension', 'file_size',
+        'uploaded_by', 'upload_source', 'file_path', 'file_name', 'file_extension', 'file_size',
         'mime_type', 'issuing_entity', 'issue_date', 'expiry_date', 'physical_location',
         'qr_code', 'barcode', 'ocr_content', 'tags', 'notes', 'status', 'is_confidential',
     ];
