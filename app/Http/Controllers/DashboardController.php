@@ -33,7 +33,7 @@ class DashboardController extends Controller
             );
 
         $totalDocs    = $base()->count();
-        $electronicDocs = $base()->where('upload_source', 'web')->count();
+        $electronicDocs = $base()->whereIn('upload_source', ['web', 'api'])->count();
         $paperDocs = $base()->where('upload_source', 'scanner')->count();
         $expiringSoon = $base()->expiringSoon(30)->count();
         $expired      = $base()->expired()->count();
