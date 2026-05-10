@@ -48,6 +48,10 @@ services:
       # Scanner watcher
       SCAN_API_TOKEN: ${SCAN_API_TOKEN}
 
+      # Integration API (shared token)
+      INTEGRATION_API_TOKEN: ${INTEGRATION_API_TOKEN}
+      INTEGRATION_UPLOADER_USER_ID: ${INTEGRATION_UPLOADER_USER_ID}
+
       # Mail
       MAIL_MAILER: ${MAIL_MAILER:-log}
       MAIL_HOST: ${MAIL_HOST}
