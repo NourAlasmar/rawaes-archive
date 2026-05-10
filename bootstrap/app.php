@@ -17,7 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        //
+        $middleware->alias([
+            'integration.token' => \App\Http\Middleware\IntegrationToken::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

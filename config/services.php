@@ -30,6 +30,13 @@ return [
         'token' => env('SCAN_API_TOKEN'),
     ],
 
+    'integration' => [
+        // Shared token for external systems that need to upload documents without user login.
+        'token' => env('INTEGRATION_API_TOKEN'),
+        // Optional: set a specific user id to attribute uploads to (fallback: first super-admin).
+        'uploader_user_id' => env('INTEGRATION_UPLOADER_USER_ID'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
