@@ -90,3 +90,22 @@ python -m pywin32_postinstall -install
 | `config.ini` | الإعدادات |
 | `start-watcher.bat` | تشغيل سريع |
 | `start-watcher-hidden.vbs` | تشغيل في الخلفية بدون نافذة |
+
+---
+
+## 🧩 دمج الصفحات في ملف PDF واحد (مهم)
+
+بعض إعدادات السكانر تقوم بحفظ **كل صفحة كملف منفصل** داخل `watch_folder`.
+هذا يسبب أن النظام يستقبلها صفحة-صفحة.
+
+تم إضافة وضع **Batch** في `config.ini` بحيث يجمع الصفحات التي تصل خلال فترة قصيرة ويحوّلها تلقائياً إلى **PDF واحد** ثم يرفعه.
+
+إعدادات `config.ini`:
+- `batch_enabled = true`
+- `batch_window_seconds = 8` (ينتظر 8 ثواني بعد آخر صفحة)
+- `batch_min_files = 2` (لو أقل من صفحتين يرفعها كما هي)
+
+ملاحظة: دمج PDF يحتاج مكتبة `pillow`:
+```cmd
+pip install pillow
+```
