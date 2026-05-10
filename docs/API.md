@@ -25,10 +25,18 @@ Then the external system sends:
 `X-Integration-Token: <INTEGRATION_API_TOKEN>`
 
 Endpoints:
+- `GET /api/integration/bootstrap` (all metadata in one response)
 - `GET /api/integration/sectors`
 - `GET /api/integration/document-types`
 - `GET /api/integration/folders?sector_id=...`
 - `POST /api/integration/documents` (multipart upload)
+
+Example `curl` bootstrap:
+```bash
+curl "http://45.63.117.248/api/integration/bootstrap" \
+  -H "X-Integration-Token: INTEGRATION_TOKEN_HERE" \
+  -H "Accept: application/json"
+```
 
 Example `curl` upload:
 ```bash

@@ -10,6 +10,18 @@ use Illuminate\Http\Request;
 
 class IntegrationMetaController extends Controller
 {
+    public function bootstrap()
+    {
+        return response()->json([
+            'sectors' => Sector::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
+            'document_types' => DocumentType::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'requires_expiry']),
+            'folders' => DocumentFolder::where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']),
+        ]);
+    }
+
     public function sectors()
     {
         return response()->json([
@@ -40,4 +52,3 @@ class IntegrationMetaController extends Controller
         ]);
     }
 }
-

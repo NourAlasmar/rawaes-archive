@@ -12,6 +12,7 @@ Route::get('/scans/ping', [ScanUploadController::class, 'ping'])->name('api.scan
 
 // External integrations (shared token)
 Route::middleware('integration.token')->prefix('integration')->group(function () {
+    Route::get('/bootstrap', [IntegrationMetaController::class, 'bootstrap']);
     Route::get('/sectors', [IntegrationMetaController::class, 'sectors']);
     Route::get('/document-types', [IntegrationMetaController::class, 'documentTypes']);
     Route::get('/folders', [IntegrationMetaController::class, 'folders']);
