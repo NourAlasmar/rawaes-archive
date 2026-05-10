@@ -19,6 +19,13 @@ export default function CameraCapture({ onCapture, onClose }) {
         setLoading(true);
         setError(null);
         try {
+            if (!window.isSecureContext) {
+                throw new Error('INSECURE_CONTEXT');
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('UNSUPPORTED');
+            }
+
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode,
@@ -32,11 +39,18 @@ export default function CameraCapture({ onCapture, onClose }) {
                 videoRef.current.srcObject = mediaStream;
             }
         } catch (err) {
-            setError(
-                err.name === 'NotAllowedError'
-                    ? 'لم يتم السماح بالوصول للكاميرا. فعّل الإذن من إعدادات المتصفح.'
-                    : 'لا يمكن الوصول للكاميرا: ' + err.message
-            );
+            const name = err?.name;
+            const message = err?.message ?? String(err);
+
+            if (message === 'INSECURE_CONTEXT') {
+                setError('ميزة الكاميرا تحتاج اتصال HTTPS (أو localhost). افتح النظام عبر https:// ثم أعد المحاولة.');
+            } else if (message === 'UNSUPPORTED') {
+                setError('المتصفح لا يدعم تشغيل الكاميرا (getUserMedia). جرّب Chrome/Edge أو استخدم رفع ملف بدلاً من الكاميرا.');
+            } else if (name === 'NotAllowedError') {
+                setError('لم يتم السماح بالوصول للكاميرا. فعّل الإذن من إعدادات المتصفح ثم أعد المحاولة.');
+            } else {
+                setError('لا يمكن الوصول للكاميرا: ' + message);
+            }
         } finally {
             setLoading(false);
         }
