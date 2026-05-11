@@ -27,6 +27,7 @@ function DocumentRow({ doc, can }) {
     const isExpired = doc.is_expired;
     const isExpiringSoon = doc.is_expiring_soon;
     const isDeleted = !!doc.deleted_at;
+    const sourceLabel = doc.upload_source === 'scanner' ? 'ورقي' : 'إلكتروني';
 
     return (
         <tr className="hover:bg-gray-50 transition-colors">
@@ -41,6 +42,7 @@ function DocumentRow({ doc, can }) {
             </td>
             {isDeleted ? (
                 <>
+                    <td className="px-4 py-3 text-sm text-gray-400"></td>
                     <td className="px-4 py-3 text-sm text-gray-400"></td>
                     <td className="px-4 py-3 text-sm text-gray-400"></td>
                     <td className="px-4 py-3 text-sm text-gray-400"></td>
@@ -66,6 +68,15 @@ function DocumentRow({ doc, can }) {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{doc.sector?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{doc.document_type?.name ?? '—'}</td>
+                    <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            doc.upload_source === 'scanner'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-blue-100 text-blue-700'
+                        }`}>
+                            {sourceLabel}
+                        </span>
+                    </td>
                     <td className="px-4 py-3">
                         {doc.expiry_date ? (
                             <div className="flex items-center gap-1">
@@ -270,7 +281,7 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
 	                    <table className="w-full">
 	                        <thead className="bg-gray-50 border-b border-gray-100">
 	                            <tr>
-	                                {['#', 'المستند', 'القطاع', 'النوع', 'انتهاء الصلاحية', 'الحالة', 'الرافع', 'الإجراءات'].map(h => (
+	                                {['#', 'المستند', 'القطاع', 'النوع', 'المصدر', 'انتهاء الصلاحية', 'الحالة', 'الرافع', 'الإجراءات'].map(h => (
 	                                    <th key={h} className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
 	                                        {h}
 	                                    </th>
@@ -282,8 +293,8 @@ export default function DocumentsIndex({ documents, sectors, documentTypes, filt
 		                                documents.data.map(doc => <DocumentRow key={doc.id} doc={doc} can={can} />)
 		                            ) : (
 		                                <tr>
-		                                    <td colSpan={8} className="px-4 py-16 text-center">
-		                                        <FileText size={40} className="mx-auto text-gray-300 mb-3" />
+	                                    <td colSpan={9} className="px-4 py-16 text-center">
+	                                        <FileText size={40} className="mx-auto text-gray-300 mb-3" />
 	                                        <p className="text-gray-500 font-medium">لا توجد مستندات</p>
                                         <p className="text-gray-400 text-sm mt-1">ابدأ برفع أول مستند</p>
                                         <Link
