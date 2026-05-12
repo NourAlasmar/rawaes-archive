@@ -78,6 +78,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::post('/inventory/folders', [InventoryController::class, 'storeFolder'])->name('inventory.folders.store');
     Route::get('/api/inventory/lookup', [InventoryController::class, 'lookup'])->name('inventory.lookup');
     Route::get('/api/inventory/folders', [InventoryController::class, 'list'])->name('inventory.folders.list');
+    Route::put('/api/inventory/folders/{folder}', [InventoryController::class, 'update'])->name('inventory.folders.update');
     Route::post('/api/inventory/folders/{folder}/checkout', [InventoryController::class, 'checkout'])->name('inventory.folders.checkout');
     Route::post('/api/inventory/folders/{folder}/checkin', [InventoryController::class, 'checkin'])->name('inventory.folders.checkin');
     Route::get('/api/inventory/movements', [InventoryController::class, 'movements'])->name('inventory.movements');

@@ -4,7 +4,7 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { BrowserQRCodeReader } from '@zxing/browser';
-import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText } from 'lucide-react';
+import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText, Printer, Pencil } from 'lucide-react';
 
 function formatDate(value) {
     if (!value) return '';
@@ -92,10 +92,13 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
 
     const [checkoutModal, setCheckoutModal] = useState({ open: false, folder: null });
     const [checkinModal, setCheckinModal] = useState({ open: false, folder: null });
+    const [editModal, setEditModal] = useState({ open: false, folder: null });
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState(null);
     const [checkoutForm, setCheckoutForm] = useState({ to_person: '', notes: '' });
     const [checkinForm, setCheckinForm] = useState({ notes: '' });
+    const [editForm, setEditForm] = useState({ sector_id: '', document_folder_id: '', name: '', description: '', location: '', is_active: true });
+    const [stickerToPrint, setStickerToPrint] = useState(null); // { name, code }
 
     const refreshList = async () => {
         setLoadingList(true);
@@ -142,6 +145,12 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
         if (tab === 'custody') loadMovements(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab]);
+
+    useEffect(() => {
+        const handler = () => setStickerToPrint(null);
+        window.addEventListener('afterprint', handler);
+        return () => window.removeEventListener('afterprint', handler);
+    }, []);
 
     const doLookup = async (nextCode) => {
         const finalCode = (nextCode ?? code ?? '').trim();
@@ -225,6 +234,19 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
         setCheckinModal({ open: true, folder });
     };
 
+    const openEdit = (folder) => {
+        setActionError(null);
+        setEditForm({
+            sector_id: folder?.sector_id ?? '',
+            document_folder_id: folder?.document_folder_id ?? '',
+            name: folder?.name ?? '',
+            description: folder?.description ?? '',
+            location: folder?.location ?? '',
+            is_active: folder?.is_active ?? true,
+        });
+        setEditModal({ open: true, folder });
+    };
+
     const submitCheckout = async () => {
         if (!checkoutModal.folder) return;
         setActionLoading(true);
@@ -255,9 +277,57 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
         }
     };
 
+    const submitEdit = async () => {
+        if (!editModal.folder) return;
+        setActionLoading(true);
+        setActionError(null);
+        try {
+            await axios.put(`/archive/api/inventory/folders/${editModal.folder.id}`, {
+                ...editForm,
+                sector_id: editForm.sector_id || null,
+                document_folder_id: editForm.document_folder_id || null,
+            });
+            setEditModal({ open: false, folder: null });
+            await refreshList();
+        } catch (e) {
+            setActionError(e?.response?.data?.message ?? 'فشل التعديل');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const printSticker = (folder) => {
+        const codeValue = folder?.inventory_code ?? folder?.qr_code;
+        if (!codeValue) return;
+        setStickerToPrint({ name: folder?.name ?? '', code: codeValue });
+        setTimeout(() => window.print(), 250);
+    };
+
     return (
         <>
             <Head title="الجرد" />
+
+            <style>{`
+                @media print {
+                    body * { visibility: hidden !important; }
+                    .print-sticker, .print-sticker * { visibility: visible !important; }
+                    .print-sticker { position: fixed !important; inset: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; background: white !important; }
+                }
+            `}</style>
+
+            {stickerToPrint && (
+                <div className="print-sticker hidden print:flex">
+                    <div className="flex flex-col items-center gap-2 p-2">
+                        {stickerToPrint.name && (
+                            <div className="text-[12px] font-bold text-gray-900 text-center max-w-[240px]">{stickerToPrint.name}</div>
+                        )}
+                        <div className="border border-gray-300 rounded-xl p-2">
+                            <QRCodeSVG value={stickerToPrint.code} size={140} />
+                        </div>
+                        <div className="font-mono text-[14px] font-extrabold tracking-wider" dir="ltr">{stickerToPrint.code}</div>
+                    </div>
+                </div>
+            )}
 
             <div className="bg-gradient-to-l from-blue-50 via-amber-50 to-blue-50 border border-amber-200 rounded-2xl p-5 mb-5">
                 <div className="flex items-center gap-3">
@@ -649,13 +719,15 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                     <th className="text-right p-3 font-bold">QR</th>
                                     <th className="text-right p-3 font-bold">الحالة</th>
                                     <th className="text-right p-3 font-bold">التسليم</th>
+                                    <th className="text-right p-3 font-bold">طباعة</th>
+                                    <th className="text-right p-3 font-bold">تعديل</th>
                                     <th className="text-right p-3 font-bold">إجراءات</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredFolders.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9} className="p-8 text-center text-gray-400">لا توجد نتائج</td>
+                                        <td colSpan={11} className="p-8 text-center text-gray-400">لا توجد نتائج</td>
                                     </tr>
                                 ) : (
                                     filteredFolders.map(f => (
@@ -726,6 +798,28 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                                         <span className="text-xs text-gray-400">بدون صلاحية</span>
                                                     )}
                                                 </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <button
+                                                    onClick={() => printSticker(f)}
+                                                    className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                                                >
+                                                    <Printer size={14} />
+                                                    طباعة
+                                                </button>
+                                            </td>
+                                            <td className="p-3">
+                                                {canManage ? (
+                                                    <button
+                                                        onClick={() => openEdit(f)}
+                                                        className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                                                    >
+                                                        <Pencil size={14} />
+                                                        تعديل
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">—</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))
@@ -819,6 +913,100 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                     >
                         <Hand size={16} />
                         {actionLoading ? '...' : 'تأكيد الاستلام'}
+                    </button>
+                </div>
+            </Modal>
+
+            <Modal
+                open={editModal.open}
+                title={`تعديل ملف: ${editModal.folder?.name ?? ''}`}
+                onClose={() => setEditModal({ open: false, folder: null })}
+            >
+                {actionError && (
+                    <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-3">
+                        {actionError}
+                    </div>
+                )}
+
+                <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1.5">القطاع</label>
+                            <select
+                                value={editForm.sector_id}
+                                onChange={(e) => setEditForm(f => ({ ...f, sector_id: e.target.value, document_folder_id: '' }))}
+                                className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                            >
+                                <option value="">بدون</option>
+                                {sectors?.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1.5">تصنيف النظام (اختياري)</label>
+                            <select
+                                value={editForm.document_folder_id}
+                                onChange={(e) => setEditForm(f => ({ ...f, document_folder_id: e.target.value }))}
+                                className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                            >
+                                <option value="">بدون</option>
+                                {(editForm.sector_id
+                                    ? (documentFolders ?? []).filter(d => String(d.sector_id) === String(editForm.sector_id))
+                                    : (documentFolders ?? [])
+                                ).map(d => (
+                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">اسم الملف</label>
+                        <input
+                            value={editForm.name}
+                            onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">الموقع</label>
+                        <input
+                            value={editForm.location}
+                            onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))}
+                            className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                            placeholder="غرفة/رف/صندوق..."
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">الوصف</label>
+                        <textarea
+                            value={editForm.description}
+                            onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
+                            className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                            rows={3}
+                        />
+                    </div>
+
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={!!editForm.is_active}
+                            onChange={(e) => setEditForm(f => ({ ...f, is_active: e.target.checked }))}
+                        />
+                        نشط
+                    </label>
+
+                    <button
+                        onClick={submitEdit}
+                        disabled={actionLoading || !editForm.name.trim()}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg py-2.5"
+                    >
+                        <Pencil size={16} />
+                        {actionLoading ? '...' : 'حفظ التعديل'}
                     </button>
                 </div>
             </Modal>

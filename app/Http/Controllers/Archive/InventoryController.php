@@ -169,6 +169,46 @@ class InventoryController extends Controller
         return response()->json(['folders' => $folders], 200);
     }
 
+    public function update(Request $request, PhysicalFolder $folder)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+
+        $validated = $request->validate([
+            'sector_id' => 'nullable|exists:sectors,id',
+            'document_folder_id' => 'nullable|exists:document_folders,id',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'location' => 'nullable|string|max:255',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $folder->update($validated);
+
+        AuditLog::record('inventory_update_physical_folder', $folder, [], $folder->toArray(), "تعديل ملف ورقي (الجرد): {$folder->name}");
+
+        $folder->load(['sector:id,name', 'documentFolder:id,name']);
+
+        return response()->json([
+            'folder' => [
+                'id' => $folder->id,
+                'sector_id' => $folder->sector_id,
+                'document_folder_id' => $folder->document_folder_id,
+                'name' => $folder->name,
+                'description' => $folder->description,
+                'location' => $folder->location,
+                'inventory_code' => $folder->inventory_code,
+                'qr_code' => $folder->qr_code,
+                'is_active' => (bool) $folder->is_active,
+                'is_checked_out' => (bool) $folder->is_checked_out,
+                'checked_out_to' => $folder->checked_out_to,
+                'checked_out_at' => $folder->checked_out_at,
+                'checked_out_notes' => $folder->checked_out_notes,
+                'sector' => $folder->sector ? ['id' => $folder->sector->id, 'name' => $folder->sector->name] : null,
+                'document_folder' => $folder->documentFolder ? ['id' => $folder->documentFolder->id, 'name' => $folder->documentFolder->name] : null,
+            ],
+        ], 200);
+    }
+
     public function checkout(Request $request, PhysicalFolder $folder)
     {
         abort_unless($request->user()?->can('inventory.manage'), 403);
