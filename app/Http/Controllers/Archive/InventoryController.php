@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Archive;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
-use App\Models\DocumentFolderMovement;
+use App\Models\PhysicalFolder;
+use App\Models\PhysicalFolderMovement;
 use App\Models\Sector;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class InventoryController extends Controller
@@ -21,19 +21,28 @@ class InventoryController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'name_en']);
 
-        $folders = DocumentFolder::with(['sector', 'parent'])
+        // Physical folders (paper files) for inventory tracking
+        $physicalFolders = PhysicalFolder::with(['sector', 'documentFolder'])
             ->orderBy('sector_id')
-            ->orderBy('parent_id')
             ->orderBy('name')
             ->get([
-                'id', 'sector_id', 'parent_id', 'name', 'name_en',
+                'id', 'sector_id', 'document_folder_id', 'name',
+                'description', 'location',
                 'qr_code', 'inventory_code', 'is_active',
                 'is_checked_out', 'checked_out_to', 'checked_out_at', 'checked_out_notes',
             ]);
 
+        // System folders tree is used only as optional classification
+        $documentFolders = DocumentFolder::with(['sector', 'parent'])
+            ->orderBy('sector_id')
+            ->orderBy('parent_id')
+            ->orderBy('name')
+            ->get(['id', 'sector_id', 'parent_id', 'name', 'name_en']);
+
         return Inertia::render('Archive/Inventory/Index', [
             'sectors' => $sectors,
-            'folders' => $folders,
+            'physicalFolders' => $physicalFolders,
+            'documentFolders' => $documentFolders,
             'canManage' => (bool) $request->user()?->can('inventory.manage'),
         ]);
     }
@@ -43,36 +52,35 @@ class InventoryController extends Controller
         abort_unless($request->user()?->can('inventory.manage'), 403);
 
         $validated = $request->validate([
-            'sector_id' => 'required|exists:sectors,id',
-            'parent_id' => 'nullable|exists:document_folders,id',
+            'sector_id' => 'nullable|exists:sectors,id',
+            'document_folder_id' => 'nullable|exists:document_folders,id',
             'name' => 'required|string|max:255',
-            'name_en' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'icon' => 'nullable|string|max:50',
-            'color' => 'nullable|string|max:20',
+            'location' => 'nullable|string|max:255',
         ]);
 
-        $folder = DocumentFolder::create($validated);
+        $folder = PhysicalFolder::create($validated);
 
         AuditLog::record('create_folder', $folder, [], $folder->toArray(), "إنشاء مجلد (الجرد): {$folder->name}");
 
-        $folder->load(['sector:id,name,name_en', 'parent:id,name']);
+        $folder->load(['sector:id,name,name_en', 'documentFolder:id,name,sector_id,parent_id']);
 
         return response()->json([
             'folder' => [
                 'id' => $folder->id,
                 'name' => $folder->name,
-                'name_en' => $folder->name_en,
                 'qr_code' => $folder->qr_code,
                 'inventory_code' => $folder->inventory_code,
+                'description' => $folder->description,
+                'location' => $folder->location,
                 'sector' => $folder->sector ? [
                     'id' => $folder->sector->id,
                     'name' => $folder->sector->name,
                     'name_en' => $folder->sector->name_en,
                 ] : null,
-                'parent' => $folder->parent ? [
-                    'id' => $folder->parent->id,
-                    'name' => $folder->parent->name,
+                'document_folder' => $folder->documentFolder ? [
+                    'id' => $folder->documentFolder->id,
+                    'name' => $folder->documentFolder->name,
                 ] : null,
                 'is_active' => (bool) $folder->is_active,
                 'is_checked_out' => (bool) $folder->is_checked_out,
@@ -91,7 +99,7 @@ class InventoryController extends Controller
             'code' => 'required|string|max:255',
         ]);
 
-        $folder = DocumentFolder::with(['sector:id,name,name_en', 'parent:id,name,parent_id'])
+        $folder = PhysicalFolder::with(['sector:id,name,name_en', 'documentFolder:id,name,sector_id,parent_id'])
             ->where(function ($q) use ($validated) {
                 $q->where('inventory_code', $validated['code'])
                   ->orWhere('qr_code', $validated['code']);
@@ -107,11 +115,15 @@ class InventoryController extends Controller
             'folder' => [
                 'id' => $folder->id,
                 'name' => $folder->name,
-                'path' => $folder->path,
                 'sector' => $folder->sector ? [
                     'id' => $folder->sector->id,
                     'name' => $folder->sector->name,
                 ] : null,
+                'document_folder' => $folder->documentFolder ? [
+                    'id' => $folder->documentFolder->id,
+                    'name' => $folder->documentFolder->name,
+                ] : null,
+                'location' => $folder->location,
                 'is_active' => (bool) $folder->is_active,
                 'is_checked_out' => (bool) $folder->is_checked_out,
                 'checked_out_to' => $folder->checked_out_to,
@@ -125,22 +137,23 @@ class InventoryController extends Controller
     {
         abort_unless($request->user()?->can('inventory.view'), 403);
 
-        $folders = DocumentFolder::with(['sector:id,name', 'parent:id,name'])
+        $folders = PhysicalFolder::with(['sector:id,name', 'documentFolder:id,name'])
             ->orderBy('sector_id')
-            ->orderBy('parent_id')
             ->orderBy('name')
             ->get([
-                'id', 'sector_id', 'parent_id', 'name', 'name_en',
+                'id', 'sector_id', 'document_folder_id', 'name',
+                'description', 'location',
                 'qr_code', 'inventory_code', 'is_active',
                 'is_checked_out', 'checked_out_to', 'checked_out_at', 'checked_out_notes',
             ])
-            ->map(function (DocumentFolder $f) {
+            ->map(function (PhysicalFolder $f) {
                 return [
                     'id' => $f->id,
                     'sector_id' => $f->sector_id,
-                    'parent_id' => $f->parent_id,
+                    'document_folder_id' => $f->document_folder_id,
                     'name' => $f->name,
-                    'path' => $f->path,
+                    'description' => $f->description,
+                    'location' => $f->location,
                     'inventory_code' => $f->inventory_code,
                     'qr_code' => $f->qr_code,
                     'is_active' => (bool) $f->is_active,
@@ -149,13 +162,14 @@ class InventoryController extends Controller
                     'checked_out_at' => $f->checked_out_at,
                     'checked_out_notes' => $f->checked_out_notes,
                     'sector' => $f->sector ? ['id' => $f->sector->id, 'name' => $f->sector->name] : null,
+                    'document_folder' => $f->documentFolder ? ['id' => $f->documentFolder->id, 'name' => $f->documentFolder->name] : null,
                 ];
             });
 
         return response()->json(['folders' => $folders], 200);
     }
 
-    public function checkout(Request $request, DocumentFolder $folder)
+    public function checkout(Request $request, PhysicalFolder $folder)
     {
         abort_unless($request->user()?->can('inventory.manage'), 403);
 
@@ -176,8 +190,8 @@ class InventoryController extends Controller
             'checked_out_notes' => $validated['notes'] ?? null,
         ])->save();
 
-        DocumentFolderMovement::create([
-            'folder_id' => $folder->id,
+        PhysicalFolderMovement::create([
+            'physical_folder_id' => $folder->id,
             'action' => 'checkout',
             'to_person' => $validated['to_person'],
             'notes' => $validated['notes'] ?? null,
@@ -189,7 +203,7 @@ class InventoryController extends Controller
         return response()->json(['folder' => $folder->fresh()], 200);
     }
 
-    public function checkin(Request $request, DocumentFolder $folder)
+    public function checkin(Request $request, PhysicalFolder $folder)
     {
         abort_unless($request->user()?->can('inventory.manage'), 403);
 
@@ -201,8 +215,8 @@ class InventoryController extends Controller
             return response()->json(['message' => 'هذا المجلد غير مُسلّم حالياً'], 422);
         }
 
-        DocumentFolderMovement::create([
-            'folder_id' => $folder->id,
+        PhysicalFolderMovement::create([
+            'physical_folder_id' => $folder->id,
             'action' => 'checkin',
             'to_person' => $folder->checked_out_to,
             'notes' => $validated['notes'] ?? null,

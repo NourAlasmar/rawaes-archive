@@ -33,29 +33,27 @@ function Modal({ open, title, children, onClose }) {
     );
 }
 
-export default function InventoryIndex({ sectors, folders: initialFolders, canManage }) {
-    const [folders, setFolders] = useState(initialFolders ?? []);
+export default function InventoryIndex({ sectors, physicalFolders, documentFolders, canManage }) {
+    const [folders, setFolders] = useState(physicalFolders ?? []);
     const [loadingList, setLoadingList] = useState(false);
 
     const [createData, setCreateData] = useState({
-        sector_id: sectors?.[0]?.id ?? '',
-        parent_id: '',
+        sector_id: '',
+        document_folder_id: '',
         name: '',
-        name_en: '',
         description: '',
-        icon: '',
-        color: '',
+        location: '',
     });
     const [creating, setCreating] = useState(false);
     const [createdFolder, setCreatedFolder] = useState(null); // for print preview
     const [createError, setCreateError] = useState(null);
 
-    const parentOptions = useMemo(() => {
+    const classificationOptions = useMemo(() => {
         const sectorId = String(createData.sector_id || '');
-        return folders
-            .filter(f => String(f.sector_id) === sectorId)
-            .map(f => ({ id: f.id, name: f.name }));
-    }, [folders, createData.sector_id]);
+        const list = documentFolders ?? [];
+        const filtered = sectorId ? list.filter(f => String(f.sector_id) === sectorId) : list;
+        return filtered.map(f => ({ id: f.id, name: f.name }));
+    }, [documentFolders, createData.sector_id]);
 
     const [sectorFilter, setSectorFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | available | checkedout
@@ -70,11 +68,13 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
             if (!q) return true;
             const hay = [
                 f.name,
-                f.path,
                 f.inventory_code,
                 f.qr_code,
                 f.checked_out_to,
                 f.sector?.name,
+                f.location,
+                f.description,
+                f.document_folder?.name,
             ].filter(Boolean).join(' ').toLowerCase();
             return hay.includes(q);
         });
@@ -168,7 +168,7 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
             const res = await axios.post('/archive/inventory/folders', createData);
             setCreatedFolder(res.data.folder);
             await refreshList();
-            setCreateData(prev => ({ ...prev, name: '', name_en: '', description: '' }));
+            setCreateData(prev => ({ ...prev, name: '', description: '' }));
         } catch (err) {
             setCreateError(err?.response?.data?.message ?? 'فشل إنشاء المجلد');
         } finally {
@@ -250,8 +250,8 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                             <FolderPlus size={18} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-800">إنشاء مجلد</h3>
-                            <p className="text-xs text-gray-500">سيتم توليد كود قصير + QR للمجلد</p>
+                            <h3 className="font-bold text-gray-800">إنشاء ملف ورقي</h3>
+                            <p className="text-xs text-gray-500">سيتم توليد كود قصير + QR للصق على الملف</p>
                         </div>
                     </div>
 
@@ -267,10 +267,11 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">القطاع</label>
                                 <select
                                     value={createData.sector_id}
-                                    onChange={(e) => setCreateData(d => ({ ...d, sector_id: e.target.value, parent_id: '' }))}
+                                    onChange={(e) => setCreateData(d => ({ ...d, sector_id: e.target.value, document_folder_id: '' }))}
                                     className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                     disabled={!canManage}
                                 >
+                                    <option value="">بدون</option>
                                     {sectors?.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
@@ -278,15 +279,15 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5">داخل مجلد (اختياري)</label>
+                                <label className="block text-xs font-bold text-gray-700 mb-1.5">تصنيف النظام (اختياري)</label>
                                 <select
-                                    value={createData.parent_id}
-                                    onChange={(e) => setCreateData(d => ({ ...d, parent_id: e.target.value }))}
+                                    value={createData.document_folder_id}
+                                    onChange={(e) => setCreateData(d => ({ ...d, document_folder_id: e.target.value }))}
                                     className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                     disabled={!canManage}
                                 >
                                     <option value="">بدون</option>
-                                    {parentOptions.map(p => (
+                                    {classificationOptions.map(p => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>
@@ -294,13 +295,24 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1.5">اسم المجلد</label>
+                            <label className="block text-xs font-bold text-gray-700 mb-1.5">اسم الملف</label>
                             <input
                                 value={createData.name}
                                 onChange={(e) => setCreateData(d => ({ ...d, name: e.target.value }))}
                                 className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
-                                placeholder="مثال: عقود 2026"
+                                placeholder="مثال: ملف عقود 2026"
                                 required
+                                disabled={!canManage}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1.5">الموقع (اختياري)</label>
+                            <input
+                                value={createData.location}
+                                onChange={(e) => setCreateData(d => ({ ...d, location: e.target.value }))}
+                                className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                                placeholder="مثال: غرفة 2 / رف A / صندوق 7"
                                 disabled={!canManage}
                             />
                         </div>
@@ -312,7 +324,7 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                                 onChange={(e) => setCreateData(d => ({ ...d, description: e.target.value }))}
                                 className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                 rows={2}
-                                placeholder="ماذا يحتوي هذا المجلد؟"
+                                placeholder="ماذا يحتوي هذا الملف؟"
                                 disabled={!canManage}
                             />
                         </div>
@@ -366,7 +378,7 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
-                                    placeholder="اسم/مسار/كود/مستلم..."
+                                    placeholder="اسم/كود/مستلم/موقع..."
                                 />
                             </div>
                             <div>
@@ -444,7 +456,13 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                             )}
                             {lookup.result?.found === true && (
                                 <div className="mt-3 text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg p-3">
-                                    موجود: {lookup.result.folder?.path ?? lookup.result.folder?.name}
+                                    موجود: {lookup.result.folder?.name}
+                                    {lookup.result.folder?.document_folder?.name && (
+                                        <span className="text-emerald-900"> — تصنيف: {lookup.result.folder.document_folder.name}</span>
+                                    )}
+                                    {lookup.result.folder?.location && (
+                                        <span className="text-emerald-900"> — موقع: {lookup.result.folder.location}</span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -454,8 +472,10 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                         <table className="min-w-full text-sm">
                             <thead className="bg-gray-50 text-gray-600">
                                 <tr>
-                                    <th className="text-right p-3 font-bold">المجلد</th>
+                                    <th className="text-right p-3 font-bold">الملف الورقي</th>
                                     <th className="text-right p-3 font-bold">القطاع</th>
+                                    <th className="text-right p-3 font-bold">تصنيف النظام</th>
+                                    <th className="text-right p-3 font-bold">الموقع</th>
                                     <th className="text-right p-3 font-bold">الكود</th>
                                     <th className="text-right p-3 font-bold">QR</th>
                                     <th className="text-right p-3 font-bold">الحالة</th>
@@ -466,7 +486,7 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                             <tbody>
                                 {filteredFolders.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="p-8 text-center text-gray-400">لا توجد نتائج</td>
+                                        <td colSpan={9} className="p-8 text-center text-gray-400">لا توجد نتائج</td>
                                     </tr>
                                 ) : (
                                     filteredFolders.map(f => (
@@ -476,9 +496,13 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
                                         >
                                             <td className="p-3">
                                                 <div className="font-bold text-gray-800">{f.name}</div>
-                                                <div className="text-xs text-gray-500 mt-1">{f.path}</div>
+                                                {f.description && (
+                                                    <div className="text-xs text-gray-500 mt-1 line-clamp-2">{f.description}</div>
+                                                )}
                                             </td>
                                             <td className="p-3 text-gray-700">{f.sector?.name ?? '—'}</td>
+                                            <td className="p-3 text-gray-700">{f.document_folder?.name ?? '—'}</td>
+                                            <td className="p-3 text-gray-700">{f.location ?? '—'}</td>
                                             <td className="p-3">
                                                 <div className="font-mono text-xs bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 inline-block" dir="ltr">
                                                     {f.inventory_code ?? f.qr_code ?? '—'}
@@ -545,7 +569,7 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
 
             <Modal
                 open={checkoutModal.open}
-                title={`تسليم مجلد: ${checkoutModal.folder?.name ?? ''}`}
+                title={`تسليم ملف: ${checkoutModal.folder?.name ?? ''}`}
                 onClose={() => setCheckoutModal({ open: false, folder: null })}
             >
                 {actionError && (
@@ -588,7 +612,7 @@ export default function InventoryIndex({ sectors, folders: initialFolders, canMa
 
             <Modal
                 open={checkinModal.open}
-                title={`استلام مجلد: ${checkinModal.folder?.name ?? ''}`}
+                title={`استلام ملف: ${checkinModal.folder?.name ?? ''}`}
                 onClose={() => setCheckinModal({ open: false, folder: null })}
             >
                 {actionError && (
