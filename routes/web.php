@@ -83,6 +83,17 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::post('/api/inventory/folders/{folder}/checkin', [InventoryController::class, 'checkin'])->name('inventory.folders.checkin');
     Route::get('/api/inventory/movements', [InventoryController::class, 'movements'])->name('inventory.movements');
 
+    // Archive inventory audits (full stocktaking sessions)
+    Route::get('/api/inventory/audits', [InventoryController::class, 'audits'])->name('inventory.audits');
+    Route::post('/api/inventory/audits', [InventoryController::class, 'auditStart'])->name('inventory.audits.start');
+    Route::get('/api/inventory/audits/{audit}', [InventoryController::class, 'auditShow'])->name('inventory.audits.show');
+    Route::post('/api/inventory/audits/{audit}/pause', [InventoryController::class, 'auditPause'])->name('inventory.audits.pause');
+    Route::post('/api/inventory/audits/{audit}/resume', [InventoryController::class, 'auditResume'])->name('inventory.audits.resume');
+    Route::post('/api/inventory/audits/{audit}/finish', [InventoryController::class, 'auditFinish'])->name('inventory.audits.finish');
+    Route::post('/api/inventory/audits/{audit}/scan', [InventoryController::class, 'auditScan'])->name('inventory.audits.scan');
+    Route::get('/api/inventory/audits/{audit}/items', [InventoryController::class, 'auditItems'])->name('inventory.audits.items');
+    Route::get('/api/inventory/audits/{audit}/report.csv', [InventoryController::class, 'auditReportCsv'])->name('inventory.audits.report_csv');
+
     Route::resource('sectors', SectorController::class);
     Route::resource('document-types', DocumentTypeController::class);
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');

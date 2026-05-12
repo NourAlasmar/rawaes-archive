@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Archive;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
+use App\Models\InventoryAudit;
+use App\Models\InventoryAuditItem;
 use App\Models\PhysicalFolder;
 use App\Models\PhysicalFolderMovement;
 use App\Models\Sector;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Inertia\Inertia;
 
 class InventoryController extends Controller
@@ -337,5 +340,321 @@ class InventoryController extends Controller
         });
 
         return response()->json(['movements' => $movements], 200);
+    }
+
+    public function audits(Request $request)
+    {
+        abort_unless($request->user()?->can('inventory.view'), 403);
+
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer|min:5|max:100',
+        ]);
+
+        $audits = InventoryAudit::query()
+            ->with(['starter:id,name', 'ender:id,name'])
+            ->latest()
+            ->paginate((int)($validated['per_page'] ?? 20))
+            ->through(function (InventoryAudit $a) {
+                return [
+                    'id' => $a->id,
+                    'title' => $a->title,
+                    'status' => $a->status,
+                    'started_at' => $a->started_at,
+                    'ended_at' => $a->ended_at,
+                    'starter' => $a->starter ? ['id' => $a->starter->id, 'name' => $a->starter->name] : null,
+                    'ender' => $a->ender ? ['id' => $a->ender->id, 'name' => $a->ender->name] : null,
+                    'result' => $a->result,
+                ];
+            });
+
+        return response()->json(['audits' => $audits], 200);
+    }
+
+    public function auditShow(Request $request, InventoryAudit $audit)
+    {
+        abort_unless($request->user()?->can('inventory.view'), 403);
+
+        $counts = InventoryAuditItem::query()
+            ->where('audit_id', $audit->id)
+            ->selectRaw("status, COUNT(*) as c")
+            ->groupBy('status')
+            ->pluck('c', 'status')
+            ->toArray();
+
+        $summary = [
+            'total' => array_sum($counts),
+            'pending' => (int)($counts['pending'] ?? 0),
+            'found' => (int)($counts['found'] ?? 0),
+            'missing' => (int)($counts['missing'] ?? 0),
+        ];
+
+        return response()->json([
+            'audit' => [
+                'id' => $audit->id,
+                'title' => $audit->title,
+                'status' => $audit->status,
+                'started_at' => $audit->started_at,
+                'ended_at' => $audit->ended_at,
+                'notes' => $audit->notes,
+                'result' => $audit->result,
+            ],
+            'summary' => $summary,
+        ], 200);
+    }
+
+    public function auditStart(Request $request)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+
+        $validated = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'include_inactive' => 'nullable|boolean',
+        ]);
+
+        $audit = InventoryAudit::create([
+            'title' => $validated['title'] ?? null,
+            'status' => 'running',
+            'started_by' => $request->user()?->id,
+            'started_at' => now(),
+            'notes' => $validated['notes'] ?? null,
+        ]);
+
+        $foldersQuery = PhysicalFolder::query()->orderBy('id');
+        if (!($validated['include_inactive'] ?? false)) {
+            $foldersQuery->where('is_active', true);
+        }
+
+        $items = [];
+        foreach ($foldersQuery->cursor() as $folder) {
+            $items[] = [
+                'audit_id' => $audit->id,
+                'physical_folder_id' => $folder->id,
+                'expected_code' => $folder->inventory_code,
+                'status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            if (count($items) >= 1000) {
+                InventoryAuditItem::insert($items);
+                $items = [];
+            }
+        }
+        if (!empty($items)) InventoryAuditItem::insert($items);
+
+        return response()->json(['audit' => ['id' => $audit->id]], 201);
+    }
+
+    public function auditPause(Request $request, InventoryAudit $audit)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+        if ($audit->status !== 'running') return response()->json(['message' => 'لا يمكن إيقاف هذا الجرد'], 422);
+        $audit->update(['status' => 'paused']);
+        return response()->json(['ok' => true], 200);
+    }
+
+    public function auditResume(Request $request, InventoryAudit $audit)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+        if ($audit->status !== 'paused') return response()->json(['message' => 'لا يمكن استئناف هذا الجرد'], 422);
+        $audit->update(['status' => 'running']);
+        return response()->json(['ok' => true], 200);
+    }
+
+    public function auditFinish(Request $request, InventoryAudit $audit)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+        if ($audit->status === 'completed') return response()->json(['message' => 'الجرد منتهي بالفعل'], 422);
+
+        $validated = $request->validate([
+            'notes' => 'nullable|string',
+            'mark_pending_missing' => 'nullable|boolean',
+        ]);
+
+        if ($validated['mark_pending_missing'] ?? true) {
+            InventoryAuditItem::where('audit_id', $audit->id)->where('status', 'pending')->update(['status' => 'missing']);
+        }
+
+        $counts = InventoryAuditItem::query()
+            ->where('audit_id', $audit->id)
+            ->selectRaw("status, COUNT(*) as c")
+            ->groupBy('status')
+            ->pluck('c', 'status')
+            ->toArray();
+
+        $result = [
+            'total' => array_sum($counts),
+            'pending' => (int)($counts['pending'] ?? 0),
+            'found' => (int)($counts['found'] ?? 0),
+            'missing' => (int)($counts['missing'] ?? 0),
+            'completed_at' => now()->toISOString(),
+        ];
+
+        $audit->update([
+            'status' => 'completed',
+            'ended_by' => $request->user()?->id,
+            'ended_at' => now(),
+            'notes' => $validated['notes'] ?? $audit->notes,
+            'result' => $result,
+        ]);
+
+        return response()->json(['result' => $result], 200);
+    }
+
+    public function auditScan(Request $request, InventoryAudit $audit)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+        if ($audit->status !== 'running') return response()->json(['message' => 'الجرد غير نشط حالياً'], 422);
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        $code = trim($validated['code']);
+
+        $folder = PhysicalFolder::query()
+            ->where('inventory_code', $code)
+            ->orWhere('qr_code', $code)
+            ->first();
+
+        if (!$folder) {
+            return response()->json(['found' => false, 'reason' => 'code_not_in_system'], 200);
+        }
+
+        $item = InventoryAuditItem::where('audit_id', $audit->id)
+            ->where('physical_folder_id', $folder->id)
+            ->first();
+
+        if (!$item) {
+            return response()->json(['found' => false, 'reason' => 'folder_not_in_audit'], 200);
+        }
+
+        $item->update([
+            'status' => 'found',
+            'scanned_by' => $request->user()?->id,
+            'scanned_at' => now(),
+            'notes' => $validated['notes'] ?? $item->notes,
+        ]);
+
+        return response()->json([
+            'found' => true,
+            'item' => [
+                'id' => $item->id,
+                'status' => $item->status,
+                'scanned_at' => $item->scanned_at,
+            ],
+            'folder' => [
+                'id' => $folder->id,
+                'name' => $folder->name,
+                'inventory_code' => $folder->inventory_code,
+                'location' => $folder->location,
+            ],
+        ], 200);
+    }
+
+    public function auditItems(Request $request, InventoryAudit $audit)
+    {
+        abort_unless($request->user()?->can('inventory.view'), 403);
+
+        $validated = $request->validate([
+            'status' => 'nullable|in:pending,found,missing',
+            'q' => 'nullable|string|max:255',
+            'per_page' => 'nullable|integer|min:10|max:200',
+        ]);
+
+        $query = InventoryAuditItem::query()
+            ->where('audit_id', $audit->id)
+            ->with(['physicalFolder:id,name,inventory_code,location,sector_id', 'physicalFolder.sector:id,name', 'scanner:id,name'])
+            ->orderBy('id');
+
+        if (!empty($validated['status'])) $query->where('status', $validated['status']);
+        $q = trim((string)($validated['q'] ?? ''));
+        if ($q !== '') {
+            $query->whereHas('physicalFolder', function ($f) use ($q) {
+                $f->where('name', 'like', "%{$q}%")
+                  ->orWhere('inventory_code', 'like', "%{$q}%")
+                  ->orWhere('location', 'like', "%{$q}%");
+            });
+        }
+
+        $items = $query->paginate((int)($validated['per_page'] ?? 50))->through(function (InventoryAuditItem $i) {
+            return [
+                'id' => $i->id,
+                'status' => $i->status,
+                'expected_code' => $i->expected_code,
+                'scanned_at' => $i->scanned_at,
+                'notes' => $i->notes,
+                'scanner' => $i->scanner ? ['id' => $i->scanner->id, 'name' => $i->scanner->name] : null,
+                'folder' => $i->physicalFolder ? [
+                    'id' => $i->physicalFolder->id,
+                    'name' => $i->physicalFolder->name,
+                    'inventory_code' => $i->physicalFolder->inventory_code,
+                    'location' => $i->physicalFolder->location,
+                    'sector' => $i->physicalFolder->sector ? ['id' => $i->physicalFolder->sector->id, 'name' => $i->physicalFolder->sector->name] : null,
+                ] : null,
+            ];
+        });
+
+        return response()->json(['items' => $items], 200);
+    }
+
+    public function auditReportCsv(Request $request, InventoryAudit $audit): StreamedResponse
+    {
+        abort_unless($request->user()?->can('inventory.view'), 403);
+
+        $filename = "inventory-audit-{$audit->id}.csv";
+
+        return response()->streamDownload(function () use ($audit) {
+            $out = fopen('php://output', 'w');
+
+            fputcsv($out, [
+                'audit_id',
+                'audit_title',
+                'audit_status',
+                'started_at',
+                'ended_at',
+                'item_status',
+                'folder_name',
+                'inventory_code',
+                'location',
+                'sector',
+                'scanned_at',
+                'scanned_by',
+                'to_person', // for missing in this report it's empty; kept for compatibility
+                'notes',
+            ]);
+
+            InventoryAuditItem::query()
+                ->where('audit_id', $audit->id)
+                ->with(['physicalFolder.sector', 'scanner'])
+                ->orderBy('id')
+                ->chunkById(500, function ($rows) use ($out, $audit) {
+                    foreach ($rows as $i) {
+                        $folder = $i->physicalFolder;
+                        fputcsv($out, [
+                            $audit->id,
+                            $audit->title,
+                            $audit->status,
+                            optional($audit->started_at)->toISOString(),
+                            optional($audit->ended_at)->toISOString(),
+                            $i->status,
+                            $folder?->name,
+                            $folder?->inventory_code ?? $i->expected_code,
+                            $folder?->location,
+                            $folder?->sector?->name,
+                            optional($i->scanned_at)->toISOString(),
+                            $i->scanner?->name,
+                            null,
+                            $i->notes,
+                        ]);
+                    }
+                });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }

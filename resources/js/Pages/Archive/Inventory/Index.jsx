@@ -4,7 +4,7 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { BrowserQRCodeReader } from '@zxing/browser';
-import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText, Printer, Pencil } from 'lucide-react';
+import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText, Printer, Pencil, PackageCheck, Pause, Play, Flag, FileDown } from 'lucide-react';
 
 function formatDate(value) {
     if (!value) return '';
@@ -145,6 +145,136 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
         if (tab === 'custody') loadMovements(1);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tab]);
+
+    // Archive stocktaking audits
+    const [auditList, setAuditList] = useState([]);
+    const [auditListLoading, setAuditListLoading] = useState(false);
+    const [activeAudit, setActiveAudit] = useState(null);
+    const [auditSummary, setAuditSummary] = useState(null);
+    const [auditLoading, setAuditLoading] = useState(false);
+    const [startAuditModal, setStartAuditModal] = useState(false);
+    const [startAuditForm, setStartAuditForm] = useState({ title: '', notes: '', include_inactive: false });
+    const [auditActionError, setAuditActionError] = useState(null);
+    const [auditScanCode, setAuditScanCode] = useState('');
+    const [auditScanNotes, setAuditScanNotes] = useState('');
+    const [auditScanResult, setAuditScanResult] = useState(null);
+    const [auditItems, setAuditItems] = useState([]);
+    const [auditItemsMeta, setAuditItemsMeta] = useState({ current_page: 1, last_page: 1, total: 0, per_page: 50 });
+    const [auditItemsLoading, setAuditItemsLoading] = useState(false);
+    const [auditItemsStatus, setAuditItemsStatus] = useState('pending');
+    const [auditItemsQuery, setAuditItemsQuery] = useState('');
+
+    const loadAudits = async () => {
+        setAuditListLoading(true);
+        try {
+            const res = await axios.get('/archive/api/inventory/audits', { params: { per_page: 20 } });
+            setAuditList(res.data.audits?.data ?? []);
+        } finally {
+            setAuditListLoading(false);
+        }
+    };
+
+    const loadAudit = async (id) => {
+        setAuditLoading(true);
+        try {
+            const res = await axios.get(`/archive/api/inventory/audits/${id}`);
+            setActiveAudit(res.data.audit);
+            setAuditSummary(res.data.summary);
+        } finally {
+            setAuditLoading(false);
+        }
+    };
+
+    const loadAuditItems = async (page = 1) => {
+        if (!activeAudit?.id) return;
+        setAuditItemsLoading(true);
+        try {
+            const res = await axios.get(`/archive/api/inventory/audits/${activeAudit.id}/items`, {
+                params: {
+                    status: auditItemsStatus || undefined,
+                    q: auditItemsQuery || undefined,
+                    per_page: 50,
+                    page,
+                }
+            });
+            const p = res.data.items;
+            setAuditItems(p?.data ?? []);
+            setAuditItemsMeta({
+                current_page: p?.current_page ?? 1,
+                last_page: p?.last_page ?? 1,
+                total: p?.total ?? 0,
+                per_page: p?.per_page ?? 50,
+            });
+        } finally {
+            setAuditItemsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (tab === 'archive_inventory') loadAudits();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab]);
+
+    useEffect(() => {
+        if (tab !== 'archive_inventory') return;
+        if (activeAudit?.id) loadAuditItems(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeAudit?.id, auditItemsStatus]);
+
+    const startAudit = async () => {
+        setAuditActionError(null);
+        setAuditLoading(true);
+        try {
+            const res = await axios.post('/archive/api/inventory/audits', startAuditForm);
+            setStartAuditModal(false);
+            setStartAuditForm({ title: '', notes: '', include_inactive: false });
+            await loadAudits();
+            await loadAudit(res.data.audit.id);
+            setAuditItemsStatus('pending');
+        } catch (e) {
+            setAuditActionError(e?.response?.data?.message ?? 'فشل بدء الجرد');
+        } finally {
+            setAuditLoading(false);
+        }
+    };
+
+    const pauseAudit = async () => {
+        if (!activeAudit?.id) return;
+        setAuditActionError(null);
+        await axios.post(`/archive/api/inventory/audits/${activeAudit.id}/pause`);
+        await loadAudit(activeAudit.id);
+    };
+    const resumeAudit = async () => {
+        if (!activeAudit?.id) return;
+        setAuditActionError(null);
+        await axios.post(`/archive/api/inventory/audits/${activeAudit.id}/resume`);
+        await loadAudit(activeAudit.id);
+    };
+    const finishAudit = async () => {
+        if (!activeAudit?.id) return;
+        setAuditActionError(null);
+        await axios.post(`/archive/api/inventory/audits/${activeAudit.id}/finish`, { mark_pending_missing: true });
+        await loadAudit(activeAudit.id);
+        await loadAuditItems(1);
+    };
+
+    const scanAudit = async () => {
+        if (!activeAudit?.id) return;
+        setAuditActionError(null);
+        setAuditScanResult(null);
+        const c = auditScanCode.trim();
+        if (!c) return;
+        try {
+            const res = await axios.post(`/archive/api/inventory/audits/${activeAudit.id}/scan`, { code: c, notes: auditScanNotes || null });
+            setAuditScanResult(res.data);
+            setAuditScanCode('');
+            setAuditScanNotes('');
+            await loadAudit(activeAudit.id);
+            await loadAuditItems(1);
+        } catch (e) {
+            setAuditActionError(e?.response?.data?.message ?? 'فشل المسح');
+        }
+    };
 
     useEffect(() => {
         const handler = () => setStickerToPrint(null);
@@ -368,9 +498,281 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                     <ScrollText size={16} />
                     العهد
                 </button>
+                <button
+                    onClick={() => setTab('archive_inventory')}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors ${
+                        tab === 'archive_inventory' ? 'bg-emerald-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                    <PackageCheck size={16} />
+                    جرد الأرشيف
+                </button>
             </div>
 
-            {tab === 'custody' ? (
+            {tab === 'archive_inventory' ? (
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-1">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <h3 className="font-bold text-gray-800">جرودات الأرشيف</h3>
+                                <p className="text-xs text-gray-500">بدء/إيقاف/استئناف/إنهاء + تقرير</p>
+                            </div>
+                            {canManage && (
+                                <button
+                                    onClick={() => { setAuditActionError(null); setStartAuditModal(true); }}
+                                    className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                    <PackageCheck size={14} />
+                                    بدء جرد
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            {auditListLoading ? (
+                                <div className="text-sm text-gray-400 p-4">جاري التحميل...</div>
+                            ) : auditList.length === 0 ? (
+                                <div className="text-sm text-gray-400 p-4">لا يوجد جرودات بعد</div>
+                            ) : (
+                                auditList.map(a => (
+                                    <button
+                                        key={a.id}
+                                        onClick={() => loadAudit(a.id)}
+                                        className={`w-full text-right p-3 rounded-xl border transition-colors ${
+                                            String(activeAudit?.id) === String(a.id) ? 'border-emerald-200 bg-emerald-50' : 'border-gray-100 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="font-bold text-gray-800 text-sm truncate">{a.title ?? `جرد #${a.id}`}</div>
+                                            <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${
+                                                a.status === 'completed' ? 'bg-gray-200 text-gray-700' : a.status === 'paused' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                                            }`}>{a.status === 'completed' ? 'منتهي' : a.status === 'paused' ? 'متوقف' : 'نشط'}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                            بدء: {formatDate(a.started_at)}
+                                            {a.ended_at ? ` — نهاية: ${formatDate(a.ended_at)}` : ''}
+                                        </div>
+                                        {a.starter?.name && (
+                                            <div className="text-xs text-gray-500 mt-1">بواسطة: {a.starter.name}</div>
+                                        )}
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-2">
+                        {!activeAudit ? (
+                            <div className="text-center text-gray-400 p-16">اختر جرداً من القائمة أو ابدأ جرد جديد</div>
+                        ) : (
+                            <>
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-gray-800">{activeAudit.title ?? `جرد #${activeAudit.id}`}</h3>
+                                        <p className="text-xs text-gray-500">
+                                            الحالة: {activeAudit.status === 'completed' ? 'منتهي' : activeAudit.status === 'paused' ? 'متوقف مؤقتاً' : 'نشط'}
+                                            {' — '}بدء: {formatDate(activeAudit.started_at)}
+                                            {activeAudit.ended_at ? ` — نهاية: ${formatDate(activeAudit.ended_at)}` : ''}
+                                        </p>
+                                    </div>
+
+                                    {canManage && (
+                                        <div className="flex gap-2 flex-wrap">
+                                            {activeAudit.status === 'running' && (
+                                                <button onClick={pauseAudit} className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-amber-200 text-amber-800 hover:bg-amber-50">
+                                                    <Pause size={14} /> إيقاف مؤقت
+                                                </button>
+                                            )}
+                                            {activeAudit.status === 'paused' && (
+                                                <button onClick={resumeAudit} className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-emerald-200 text-emerald-800 hover:bg-emerald-50">
+                                                    <Play size={14} /> استئناف
+                                                </button>
+                                            )}
+                                            {activeAudit.status !== 'completed' && (
+                                                <button onClick={finishAudit} className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg bg-gray-900 hover:bg-black text-white">
+                                                    <Flag size={14} /> إنهاء الجرد
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {auditActionError && (
+                                    <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-4">{auditActionError}</div>
+                                )}
+
+                                {auditSummary && (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                        <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                            <div className="text-xs text-gray-500">الإجمالي</div>
+                                            <div className="text-lg font-extrabold text-gray-800">{auditSummary.total}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-gray-100 bg-amber-50 p-3">
+                                            <div className="text-xs text-amber-700">بانتظار</div>
+                                            <div className="text-lg font-extrabold text-amber-900">{auditSummary.pending}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-gray-100 bg-emerald-50 p-3">
+                                            <div className="text-xs text-emerald-700">تم العثور</div>
+                                            <div className="text-lg font-extrabold text-emerald-900">{auditSummary.found}</div>
+                                        </div>
+                                        <div className="rounded-xl border border-gray-100 bg-red-50 p-3">
+                                            <div className="text-xs text-red-700">مفقود</div>
+                                            <div className="text-lg font-extrabold text-red-900">{auditSummary.missing}</div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                                    <div className="lg:col-span-2">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1.5">مسح ملف داخل الجرد</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                value={auditScanCode}
+                                                onChange={(e) => setAuditScanCode(e.target.value)}
+                                                className="flex-1 rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 font-mono"
+                                                placeholder="امسح QR أو الصق الكود"
+                                                dir="ltr"
+                                                disabled={activeAudit.status !== 'running'}
+                                            />
+                                            <button
+                                                onClick={scanAudit}
+                                                disabled={activeAudit.status !== 'running'}
+                                                className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg px-4"
+                                            >
+                                                <Search size={16} /> تسجيل
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            value={auditScanNotes}
+                                            onChange={(e) => setAuditScanNotes(e.target.value)}
+                                            className="mt-2 w-full rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
+                                            rows={2}
+                                            placeholder="ملاحظات (اختياري)"
+                                            disabled={activeAudit.status !== 'running'}
+                                        />
+                                        {auditScanResult && (
+                                            <div className={`mt-2 text-xs rounded-lg p-3 border ${
+                                                auditScanResult.found ? 'bg-emerald-50 border-emerald-100 text-emerald-800' : 'bg-red-50 border-red-100 text-red-700'
+                                            }`}>
+                                                {auditScanResult.found
+                                                    ? `تم تسجيل: ${auditScanResult.folder?.name ?? ''} (${auditScanResult.folder?.inventory_code ?? ''})`
+                                                    : 'الكود غير موجود في النظام أو خارج نطاق الجرد'}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1.5">فلترة عناصر الجرد</label>
+                                        <select
+                                            value={auditItemsStatus}
+                                            onChange={(e) => setAuditItemsStatus(e.target.value)}
+                                            className="w-full rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 mb-2"
+                                        >
+                                            <option value="pending">بانتظار</option>
+                                            <option value="found">تم العثور</option>
+                                            <option value="missing">مفقود</option>
+                                        </select>
+                                        <input
+                                            value={auditItemsQuery}
+                                            onChange={(e) => setAuditItemsQuery(e.target.value)}
+                                            className="w-full rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
+                                            placeholder="بحث داخل العناصر..."
+                                        />
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={() => loadAuditItems(1)}
+                                                className="flex-1 inline-flex items-center justify-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                                            >
+                                                <Search size={14} /> تطبيق
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (!activeAudit?.id) return;
+                                                    window.location.href = `/archive/api/inventory/audits/${activeAudit.id}/report.csv`;
+                                                }}
+                                                className="inline-flex items-center justify-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                                                title="تصدير تقرير CSV"
+                                            >
+                                                <FileDown size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                                    <table className="min-w-full text-sm">
+                                        <thead className="bg-gray-50 text-gray-600">
+                                            <tr>
+                                                <th className="text-right p-3 font-bold">الملف</th>
+                                                <th className="text-right p-3 font-bold">الكود</th>
+                                                <th className="text-right p-3 font-bold">الموقع</th>
+                                                <th className="text-right p-3 font-bold">الحالة</th>
+                                                <th className="text-right p-3 font-bold">آخر مسح</th>
+                                                <th className="text-right p-3 font-bold">المستخدم</th>
+                                                <th className="text-right p-3 font-bold">ملاحظات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {auditItemsLoading ? (
+                                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
+                                            ) : auditItems.length === 0 ? (
+                                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">لا يوجد عناصر</td></tr>
+                                            ) : auditItems.map(i => (
+                                                <tr key={i.id} className="border-t bg-white hover:bg-gray-50">
+                                                    <td className="p-3">
+                                                        <div className="font-bold text-gray-800">{i.folder?.name ?? '—'}</div>
+                                                        {i.folder?.sector?.name && <div className="text-xs text-gray-500 mt-1">القطاع: {i.folder.sector.name}</div>}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="font-mono text-xs bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 inline-block" dir="ltr">
+                                                            {i.folder?.inventory_code ?? i.expected_code}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3 text-gray-700">{i.folder?.location ?? '—'}</td>
+                                                    <td className="p-3">
+                                                        {i.status === 'found' ? (
+                                                            <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">تم العثور</span>
+                                                        ) : i.status === 'missing' ? (
+                                                            <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">مفقود</span>
+                                                        ) : (
+                                                            <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">بانتظار</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-gray-700">{formatDate(i.scanned_at)}</td>
+                                                    <td className="p-3 text-gray-700">{i.scanner?.name ?? '—'}</td>
+                                                    <td className="p-3 text-gray-600 text-xs max-w-[320px] truncate">{i.notes ?? '—'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+                                    <div>الإجمالي: {auditItemsMeta.total}</div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => loadAuditItems(Math.max(1, auditItemsMeta.current_page - 1))}
+                                            disabled={auditItemsLoading || auditItemsMeta.current_page <= 1}
+                                            className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            السابق
+                                        </button>
+                                        <div className="px-2">
+                                            صفحة {auditItemsMeta.current_page} / {auditItemsMeta.last_page}
+                                        </div>
+                                        <button
+                                            onClick={() => loadAuditItems(Math.min(auditItemsMeta.last_page, auditItemsMeta.current_page + 1))}
+                                            disabled={auditItemsLoading || auditItemsMeta.current_page >= auditItemsMeta.last_page}
+                                            className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            التالي
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            ) : tab === 'custody' ? (
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                     <div className="flex flex-col lg:flex-row lg:items-end gap-3 mb-4">
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -481,7 +883,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                     </div>
                 </div>
             ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 {/* Left: Create folder */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-1">
                     <div className="flex items-center gap-2 mb-4">
@@ -830,6 +1232,50 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                 </div>
             </div>
             )}
+
+            <Modal
+                open={startAuditModal}
+                title="بدء جرد أرشيف جديد"
+                onClose={() => setStartAuditModal(false)}
+            >
+                {auditActionError && (
+                    <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-3">{auditActionError}</div>
+                )}
+                <div className="space-y-3">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">عنوان الجرد (اختياري)</label>
+                        <input
+                            value={startAuditForm.title}
+                            onChange={(e) => setStartAuditForm(f => ({ ...f, title: e.target.value }))}
+                            className="w-full rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
+                            placeholder="مثال: جرد نهاية الشهر"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5">ملاحظات البداية (اختياري)</label>
+                        <textarea
+                            value={startAuditForm.notes}
+                            onChange={(e) => setStartAuditForm(f => ({ ...f, notes: e.target.value }))}
+                            className="w-full rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500"
+                            rows={3}
+                        />
+                    </div>
+                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={!!startAuditForm.include_inactive}
+                            onChange={(e) => setStartAuditForm(f => ({ ...f, include_inactive: e.target.checked }))}
+                        />
+                        تضمين الملفات غير النشطة
+                    </label>
+                    <button
+                        onClick={startAudit}
+                        className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg py-2.5"
+                    >
+                        <PackageCheck size={16} /> بدء
+                    </button>
+                </div>
+            </Modal>
 
             <Modal
                 open={checkoutModal.open}
