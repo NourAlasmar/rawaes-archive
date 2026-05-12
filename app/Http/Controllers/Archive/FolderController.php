@@ -37,10 +37,7 @@ class FolderController extends Controller
             'color' => 'nullable|string|max:20',
         ]);
 
-        $folder = DocumentFolder::create([
-            ...$validated,
-            'qr_code' => (string) Str::uuid(),
-        ]);
+        $folder = DocumentFolder::create($validated);
         AuditLog::record('create_folder', $folder, [], $folder->toArray(), "إنشاء مجلد: {$folder->name}");
 
         return back()->with('success', 'تم إنشاء المجلد بنجاح');

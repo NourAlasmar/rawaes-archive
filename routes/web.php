@@ -77,6 +77,9 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::post('/inventory/folders', [InventoryController::class, 'storeFolder'])->name('inventory.folders.store');
     Route::get('/api/inventory/lookup', [InventoryController::class, 'lookup'])->name('inventory.lookup');
+    Route::get('/api/inventory/folders', [InventoryController::class, 'list'])->name('inventory.folders.list');
+    Route::post('/api/inventory/folders/{folder}/checkout', [InventoryController::class, 'checkout'])->name('inventory.folders.checkout');
+    Route::post('/api/inventory/folders/{folder}/checkin', [InventoryController::class, 'checkin'])->name('inventory.folders.checkin');
 
     Route::resource('sectors', SectorController::class);
     Route::resource('document-types', DocumentTypeController::class);

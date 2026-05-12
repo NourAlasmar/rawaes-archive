@@ -29,6 +29,7 @@ class RawaesSeeder extends Seeder
             'folders.manage', 'sectors.manage', 'users.manage',
             'audit.view', 'reports.view',
             'inventory.view',
+            'inventory.manage',
         ];
         foreach ($permissions as $perm) {
             Permission::firstOrCreate(['name' => $perm]);
@@ -40,6 +41,7 @@ class RawaesSeeder extends Seeder
             'documents.download', 'folders.manage', 'audit.view', 'reports.view',
             'documents.trash.view', 'documents.restore',
             'inventory.view',
+            'inventory.manage',
         ]);
         Role::findByName('employee')->givePermissionTo([
             'documents.view', 'documents.create', 'documents.download',
