@@ -235,4 +235,67 @@ class InventoryController extends Controller
 
         return response()->json(['folder' => $folder->fresh()], 200);
     }
+
+    public function movements(Request $request)
+    {
+        abort_unless($request->user()?->can('inventory.view'), 403);
+
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:255',
+            'action' => 'nullable|in:checkout,checkin',
+            'per_page' => 'nullable|integer|min:5|max:200',
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 50);
+        $q = trim((string) ($validated['q'] ?? ''));
+        $action = $validated['action'] ?? null;
+
+        $query = PhysicalFolderMovement::query()
+            ->with([
+                'physicalFolder:id,name,inventory_code,sector_id,location',
+                'physicalFolder.sector:id,name',
+                'creator:id,name',
+            ])
+            ->latest();
+
+        if ($action) {
+            $query->where('action', $action);
+        }
+
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('to_person', 'like', "%{$q}%")
+                    ->orWhere('notes', 'like', "%{$q}%")
+                    ->orWhereHas('creator', fn($u) => $u->where('name', 'like', "%{$q}%"))
+                    ->orWhereHas('physicalFolder', function ($f) use ($q) {
+                        $f->where('name', 'like', "%{$q}%")
+                          ->orWhere('inventory_code', 'like', "%{$q}%")
+                          ->orWhere('location', 'like', "%{$q}%");
+                    });
+            });
+        }
+
+        $movements = $query->paginate($perPage)->through(function (PhysicalFolderMovement $m) {
+            return [
+                'id' => $m->id,
+                'action' => $m->action,
+                'to_person' => $m->to_person,
+                'notes' => $m->notes,
+                'created_at' => $m->created_at,
+                'created_by' => $m->creator ? ['id' => $m->creator->id, 'name' => $m->creator->name] : null,
+                'folder' => $m->physicalFolder ? [
+                    'id' => $m->physicalFolder->id,
+                    'name' => $m->physicalFolder->name,
+                    'inventory_code' => $m->physicalFolder->inventory_code,
+                    'location' => $m->physicalFolder->location,
+                    'sector' => $m->physicalFolder->sector ? [
+                        'id' => $m->physicalFolder->sector->id,
+                        'name' => $m->physicalFolder->sector->name,
+                    ] : null,
+                ] : null,
+            ];
+        });
+
+        return response()->json(['movements' => $movements], 200);
+    }
 }

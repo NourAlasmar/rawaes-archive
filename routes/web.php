@@ -80,6 +80,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/api/inventory/folders', [InventoryController::class, 'list'])->name('inventory.folders.list');
     Route::post('/api/inventory/folders/{folder}/checkout', [InventoryController::class, 'checkout'])->name('inventory.folders.checkout');
     Route::post('/api/inventory/folders/{folder}/checkin', [InventoryController::class, 'checkin'])->name('inventory.folders.checkin');
+    Route::get('/api/inventory/movements', [InventoryController::class, 'movements'])->name('inventory.movements');
 
     Route::resource('sectors', SectorController::class);
     Route::resource('document-types', DocumentTypeController::class);

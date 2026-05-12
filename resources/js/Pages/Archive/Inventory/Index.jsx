@@ -4,7 +4,7 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { BrowserQRCodeReader } from '@zxing/browser';
-import { Camera, FolderPlus, Search, XCircle, CheckCircle2, ClipboardList, Hand, Handshake, RefreshCcw } from 'lucide-react';
+import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText } from 'lucide-react';
 
 function formatDate(value) {
     if (!value) return '';
@@ -34,6 +34,7 @@ function Modal({ open, title, children, onClose }) {
 }
 
 export default function InventoryIndex({ sectors, physicalFolders, documentFolders, canManage }) {
+    const [tab, setTab] = useState('inventory'); // inventory | custody
     const [folders, setFolders] = useState(physicalFolders ?? []);
     const [loadingList, setLoadingList] = useState(false);
 
@@ -105,6 +106,42 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
             setLoadingList(false);
         }
     };
+
+    // Custody log (movements)
+    const [movements, setMovements] = useState([]);
+    const [movementsMeta, setMovementsMeta] = useState({ current_page: 1, last_page: 1, total: 0, per_page: 50 });
+    const [movementsLoading, setMovementsLoading] = useState(false);
+    const [movementsQuery, setMovementsQuery] = useState('');
+    const [movementsAction, setMovementsAction] = useState('');
+
+    const loadMovements = async (page = 1) => {
+        setMovementsLoading(true);
+        try {
+            const res = await axios.get('/archive/api/inventory/movements', {
+                params: {
+                    q: movementsQuery || undefined,
+                    action: movementsAction || undefined,
+                    per_page: 50,
+                    page,
+                }
+            });
+            const p = res.data.movements;
+            setMovements(p?.data ?? []);
+            setMovementsMeta({
+                current_page: p?.current_page ?? 1,
+                last_page: p?.last_page ?? 1,
+                total: p?.total ?? 0,
+                per_page: p?.per_page ?? 50,
+            });
+        } finally {
+            setMovementsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (tab === 'custody') loadMovements(1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tab]);
 
     const doLookup = async (nextCode) => {
         const finalCode = (nextCode ?? code ?? '').trim();
@@ -242,6 +279,138 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                 </div>
             </div>
 
+            <div className="bg-white rounded-2xl border border-gray-100 p-2 mb-5 flex gap-2">
+                <button
+                    onClick={() => setTab('inventory')}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors ${
+                        tab === 'inventory' ? 'bg-amber-500 text-white' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                    <ClipboardList size={16} />
+                    الجرد
+                </button>
+                <button
+                    onClick={() => setTab('custody')}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-colors ${
+                        tab === 'custody' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                    <ScrollText size={16} />
+                    العهد
+                </button>
+            </div>
+
+            {tab === 'custody' ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex flex-col lg:flex-row lg:items-end gap-3 mb-4">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1.5">بحث</label>
+                                <input
+                                    value={movementsQuery}
+                                    onChange={(e) => setMovementsQuery(e.target.value)}
+                                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                    placeholder="ملف/كود/مستلم/مُسلم/ملاحظات..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1.5">العملية</label>
+                                <select
+                                    value={movementsAction}
+                                    onChange={(e) => setMovementsAction(e.target.value)}
+                                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                >
+                                    <option value="">الكل</option>
+                                    <option value="checkout">تسليم</option>
+                                    <option value="checkin">استلام</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => loadMovements(1)}
+                            disabled={movementsLoading}
+                            className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-lg px-4 py-2.5"
+                        >
+                            <Search size={16} />
+                            {movementsLoading ? '...' : 'تحديث'}
+                        </button>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50 text-gray-600">
+                                <tr>
+                                    <th className="text-right p-3 font-bold">الملف</th>
+                                    <th className="text-right p-3 font-bold">الكود</th>
+                                    <th className="text-right p-3 font-bold">العملية</th>
+                                    <th className="text-right p-3 font-bold">تم تسليمه إلى</th>
+                                    <th className="text-right p-3 font-bold">من قام</th>
+                                    <th className="text-right p-3 font-bold">التاريخ</th>
+                                    <th className="text-right p-3 font-bold">ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {movementsLoading ? (
+                                    <tr><td colSpan={7} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
+                                ) : movements.length === 0 ? (
+                                    <tr><td colSpan={7} className="p-8 text-center text-gray-400">لا يوجد سجل</td></tr>
+                                ) : (
+                                    movements.map(m => (
+                                        <tr key={m.id} className="border-t bg-white hover:bg-gray-50 transition-colors">
+                                            <td className="p-3">
+                                                <div className="font-bold text-gray-800">{m.folder?.name ?? '—'}</div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    {m.folder?.sector?.name ? `القطاع: ${m.folder.sector.name}` : ''}
+                                                    {m.folder?.location ? ` — موقع: ${m.folder.location}` : ''}
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="font-mono text-xs bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 inline-block" dir="ltr">
+                                                    {m.folder?.inventory_code ?? '—'}
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                {m.action === 'checkout' ? (
+                                                    <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">تسليم</span>
+                                                ) : (
+                                                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">استلام</span>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-gray-700">{m.to_person ?? '—'}</td>
+                                            <td className="p-3 text-gray-700">{m.created_by?.name ?? '—'}</td>
+                                            <td className="p-3 text-gray-700">{formatDate(m.created_at)}</td>
+                                            <td className="p-3 text-gray-600 text-xs max-w-[340px] truncate">{m.notes ?? '—'}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4 text-xs text-gray-500">
+                        <div>الإجمالي: {movementsMeta.total}</div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => loadMovements(Math.max(1, movementsMeta.current_page - 1))}
+                                disabled={movementsLoading || movementsMeta.current_page <= 1}
+                                className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                السابق
+                            </button>
+                            <div className="px-2">
+                                صفحة {movementsMeta.current_page} / {movementsMeta.last_page}
+                            </div>
+                            <button
+                                onClick={() => loadMovements(Math.min(movementsMeta.last_page, movementsMeta.current_page + 1))}
+                                disabled={movementsLoading || movementsMeta.current_page >= movementsMeta.last_page}
+                                className="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                التالي
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 {/* Left: Create folder */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-1">
@@ -566,6 +735,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                     </div>
                 </div>
             </div>
+            )}
 
             <Modal
                 open={checkoutModal.open}
