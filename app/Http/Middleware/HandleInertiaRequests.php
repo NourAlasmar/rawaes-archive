@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                     'users.manage' => $user->can('users.manage'),
                     'audit.view' => $user->can('audit.view'),
                     'reports.view' => $user->can('reports.view'),
+                    'inventory.view' => $user->can('inventory.view'),
                 ] : [],
             ],
             'notifications' => fn() => $user ? [

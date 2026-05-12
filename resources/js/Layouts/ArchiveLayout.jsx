@@ -3,7 +3,7 @@ import { Link, usePage, router } from '@inertiajs/react';
 import {
     FolderOpen, FileText, Settings, Users, BarChart3,
     ChevronLeft, ChevronRight, Bell, Search, LogOut,
-    LayoutDashboard, Shield, Archive, Menu, X, ScanLine, Trash2
+    LayoutDashboard, Shield, Archive, Menu, X, ScanLine, Trash2, ClipboardList
 } from 'lucide-react';
 
 const allNavItems = [
@@ -11,6 +11,7 @@ const allNavItems = [
     { label: 'المستندات', href: '/archive/documents', icon: FileText, match: '/archive/documents' },
     { label: 'سلة المحذوفات', href: '/archive/trash/documents', icon: Trash2, match: '/archive/trash/documents', requires: 'documents.trash.view' },
     { label: 'المجلدات', href: '/archive/folders', icon: FolderOpen, match: '/archive/folders', requires: 'folders.manage' },
+    { label: 'الجرد', href: '/archive/inventory', icon: ClipboardList, match: '/archive/inventory', requires: 'inventory.view' },
     { label: 'القطاعات', href: '/archive/sectors', icon: Archive, match: '/archive/sectors', requires: 'sectors.manage' },
     { label: 'أنواع المستندات', href: '/archive/document-types', icon: Settings, match: '/archive/document-types', requires: 'sectors.manage' },
     { label: 'سجل التدقيق', href: '/archive/audit-logs', icon: Shield, match: '/archive/audit-logs', requires: 'audit.view' },

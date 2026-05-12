@@ -4,6 +4,7 @@ use App\Http\Controllers\Archive\AuditLogController;
 use App\Http\Controllers\Archive\DocumentController;
 use App\Http\Controllers\Archive\DocumentTypeController;
 use App\Http\Controllers\Archive\FolderController;
+use App\Http\Controllers\Archive\InventoryController;
 use App\Http\Controllers\Archive\SectorController;
 use App\Http\Controllers\Archive\TrashController;
 use App\Http\Controllers\ProfileController;
@@ -71,6 +72,11 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::put('/folders/{folder}', [FolderController::class, 'update'])->name('folders.update');
     Route::delete('/folders/{folder}', [FolderController::class, 'destroy'])->name('folders.destroy');
     Route::get('/api/folders/tree', [FolderController::class, 'tree'])->name('folders.tree');
+
+    // Inventory (Physical archive QR verification)
+    Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+    Route::post('/inventory/folders', [InventoryController::class, 'storeFolder'])->name('inventory.folders.store');
+    Route::get('/api/inventory/lookup', [InventoryController::class, 'lookup'])->name('inventory.lookup');
 
     Route::resource('sectors', SectorController::class);
     Route::resource('document-types', DocumentTypeController::class);

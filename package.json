@@ -26,6 +26,8 @@
         "@heroicons/react": "^2.2.0",
         "@inertiajs/react": "^3.0.3",
         "@vitejs/plugin-react": "^6.0.1",
+        "@zxing/browser": "^0.2.0",
+        "@zxing/library": "^0.23.0",
         "axios": "^1.15.0",
         "jspdf": "^4.2.1",
         "lucide-react": "^1.8.0",

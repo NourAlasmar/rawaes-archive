@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class DocumentFolder extends Model
 {
@@ -13,10 +14,20 @@ class DocumentFolder extends Model
 
     protected $fillable = [
         'sector_id', 'parent_id', 'name', 'name_en',
+        'qr_code',
         'description', 'icon', 'color', 'sort_order', 'is_active',
     ];
 
     protected $casts = ['is_active' => 'boolean'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $folder) {
+            if (!$folder->qr_code) {
+                $folder->qr_code = (string) Str::uuid();
+            }
+        });
+    }
 
     public function sector(): BelongsTo
     {

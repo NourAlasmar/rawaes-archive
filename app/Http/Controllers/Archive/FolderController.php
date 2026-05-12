@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\DocumentFolder;
 use App\Models\Sector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class FolderController extends Controller
@@ -36,7 +37,10 @@ class FolderController extends Controller
             'color' => 'nullable|string|max:20',
         ]);
 
-        $folder = DocumentFolder::create($validated);
+        $folder = DocumentFolder::create([
+            ...$validated,
+            'qr_code' => (string) Str::uuid(),
+        ]);
         AuditLog::record('create_folder', $folder, [], $folder->toArray(), "إنشاء مجلد: {$folder->name}");
 
         return back()->with('success', 'تم إنشاء المجلد بنجاح');
