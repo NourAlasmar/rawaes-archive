@@ -44,6 +44,11 @@ class OcrService
             $fullPath = Storage::disk('local')->path($filePath);
             $fileSize = filesize($fullPath);
 
+            // If OCR.space key isn't configured (default demo key), use local OCR directly.
+            if (empty($this->apiKey) || $this->apiKey === 'helloworld') {
+                return $this->extractLocally($fullPath, $ext, $language);
+            }
+
             // Prefer local OCR for large files to avoid OCR.space free-tier limits.
             if ($fileSize > 1024 * 1024) {
                 return $this->extractLocally($fullPath, $ext, $language);
@@ -64,7 +69,8 @@ class OcrService
 
             if (!empty($data['IsErroredOnProcessing'])) {
                 Log::error('OCR error: ' . json_encode($data['ErrorMessage'] ?? []));
-                return null;
+                // Remote rejected params/file; fallback to local OCR.
+                return $this->extractLocally($fullPath, $ext, $language);
             }
 
             $texts = [];
