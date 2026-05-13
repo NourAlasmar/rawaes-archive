@@ -117,17 +117,101 @@ class OcrService
 
     protected function extractFromImageWithTesseract(string $fullPath, string $lang): ?string
     {
-        $p = new Process(['tesseract', $fullPath, 'stdout', '-l', $lang, '--oem', '1', '--psm', '6', '-c', 'preserve_interword_spaces=1']);
-        $p->setTimeout(120);
-        $p->run();
-
-        if (!$p->isSuccessful()) {
-            Log::error('OCR(tesseract image) failed: ' . $p->getErrorOutput());
+        $tmpDir = storage_path('app/ocr_tmp/' . uniqid('img_', true));
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+            Log::error("OCR: cannot create tmp dir: {$tmpDir}");
             return null;
         }
 
+        try {
+            $pre = $tmpDir . '/pre.png';
+            // Improve small label text: upscale + normalize + mild sharpen. Avoid hard threshold for photos.
+            $magick = new Process([
+                'magick',
+                $fullPath,
+                '-auto-orient',
+                '-resize', '200%',
+                '-colorspace', 'Gray',
+                '-contrast-stretch', '1%x1%',
+                '-sharpen', '0x1',
+                $pre,
+            ]);
+            $magick->setTimeout(30);
+            $magick->run();
+            $inputForOcr = ($magick->isSuccessful() && file_exists($pre)) ? $pre : $fullPath;
+
+            // Two-pass OCR: English-only often works better for device labels; fallback to ara+eng.
+            $candEng = $this->runTesseract($inputForOcr, 'eng');
+            $candMixed = $this->runTesseract($inputForOcr, $lang);
+
+            $best = $this->pickBestOcrText([$candEng, $candMixed]);
+            return $best;
+        } finally {
+            foreach (glob($tmpDir . '/*') ?: [] as $f) @unlink($f);
+            @rmdir($tmpDir);
+        }
+    }
+
+    protected function runTesseract(string $path, string $lang): ?string
+    {
+        $p = new Process([
+            'tesseract',
+            $path,
+            'stdout',
+            '-l', $lang,
+            '--oem', '1',
+            '--psm', '6',
+            '-c', 'preserve_interword_spaces=1',
+        ]);
+        $p->setTimeout(120);
+        $p->run();
+        if (!$p->isSuccessful()) {
+            Log::warning('OCR(tesseract) failed: ' . $p->getErrorOutput());
+            return null;
+        }
         $text = trim($p->getOutput());
         return $text !== '' ? $text : null;
+    }
+
+    protected function pickBestOcrText(array $candidates): ?string
+    {
+        $best = null;
+        $bestScore = -INF;
+        foreach ($candidates as $text) {
+            if (!$text) continue;
+            $score = $this->scoreOcrText($text);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $text;
+            }
+        }
+        return $best;
+    }
+
+    protected function scoreOcrText(string $text): float
+    {
+        $t = trim($text);
+        if ($t === '') return -1e9;
+
+        $len = mb_strlen($t);
+        $alnum = preg_match_all('/[A-Za-z0-9]/u', $t) ?: 0;
+        $arabic = preg_match_all('/[\x{0600}-\x{06FF}]/u', $t) ?: 0;
+        $lines = substr_count($t, "\n") + 1;
+        $zerosRuns = preg_match_all('/0{5,}/', $t) ?: 0;
+        $onesRuns = preg_match_all('/1{8,}/', $t) ?: 0;
+        $garbageRuns = preg_match_all('/[|_`~]{3,}/', $t) ?: 0;
+
+        // Reward meaningful characters; penalize obvious OCR noise patterns.
+        $score = 0.0;
+        $score += min(400, $alnum) * 1.2;
+        $score += min(200, $arabic) * 1.0;
+        $score += min(800, $len) * 0.05;
+        $score -= $zerosRuns * 40;
+        $score -= $onesRuns * 30;
+        $score -= $garbageRuns * 20;
+        $score -= max(0, $lines - 40) * 1.5;
+
+        return $score;
     }
 
     protected function extractFromPdfWithTesseract(string $fullPath, string $lang, int $maxPages, int $dpi): ?string
