@@ -165,6 +165,7 @@ class ReportController extends Controller
                 'ID', 'العنوان', 'رقم الوثيقة', 'القطاع', 'النوع',
                 'الجهة المصدرة', 'تاريخ الإصدار', 'تاريخ الانتهاء',
                 'الحالة', 'سري', 'الحجم', 'رفع بواسطة', 'القسم', 'تاريخ الرفع',
+                'النص المستخرج (OCR)',
             ]);
 
             foreach ($documents as $doc) {
@@ -183,6 +184,7 @@ class ReportController extends Controller
                     $doc->uploader?->name ?? '',
                     $doc->uploader?->department ?? '',
                     $doc->created_at?->format('Y-m-d H:i'),
+                    $doc->ocr_content ?? '',
                 ]);
             }
 
