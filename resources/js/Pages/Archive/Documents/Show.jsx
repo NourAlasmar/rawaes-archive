@@ -171,6 +171,7 @@ const statusLabels = {
 
 export default function ShowDocument({ document }) {
     const [runningOcr, setRunningOcr] = useState(false);
+    const [ocrAutoRequested, setOcrAutoRequested] = useState(false);
     const [emailOpen, setEmailOpen] = useState(false);
     const ext = document.file_extension?.toLowerCase();
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
@@ -178,12 +179,46 @@ export default function ShowDocument({ document }) {
     const isOffice = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(ext);
     const ocrSupported = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'docx', 'doc', 'txt'].includes(ext);
 
-    const runOcr = () => {
+    const runOcr = ({ force = false } = {}) => {
         setRunningOcr(true);
-        router.post(`/archive/documents/${document.id}/ocr`, {}, {
-            onFinish: () => setRunningOcr(false),
-        });
+        router.post(
+            `/archive/documents/${document.id}/ocr`,
+            { async: true, force: !!force },
+            { preserveScroll: true, preserveState: true }
+        );
     };
+
+    useEffect(() => {
+        if (!ocrSupported) return;
+        if (document.ocr_content) return;
+        if (ocrAutoRequested) return;
+
+        setOcrAutoRequested(true);
+        runOcr({ force: false });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [document.id, ocrSupported, document.ocr_content, ocrAutoRequested]);
+
+    useEffect(() => {
+        if (!ocrSupported) return;
+        if (document.ocr_content) {
+            setRunningOcr(false);
+            return;
+        }
+        if (!ocrAutoRequested && !runningOcr) return;
+
+        let tries = 0;
+        const timer = setInterval(() => {
+            tries += 1;
+            router.reload({ preserveScroll: true, preserveState: true, only: ['document'] });
+            if (tries >= 24) { // ~2 minutes
+                clearInterval(timer);
+                setRunningOcr(false);
+            }
+        }, 5000);
+
+        return () => clearInterval(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [document.id, ocrSupported, document.ocr_content, ocrAutoRequested]);
 
     const handleDelete = () => {
         if (confirm(`هل أنت متأكد من حذف "${document.title}"؟`)) {

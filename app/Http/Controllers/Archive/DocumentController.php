@@ -250,8 +250,20 @@ class DocumentController extends Controller
         );
     }
 
-    public function runOcr(ArchiveDocument $document)
+    public function runOcr(Request $request, ArchiveDocument $document)
     {
+        // If OCR already exists and not forcing re-run, no-op.
+        if (!$request->boolean('force') && !empty($document->ocr_content)) {
+            return back()->with('success', 'النص المستخرج موجود بالفعل');
+        }
+
+        // Async by default to avoid blocking the request.
+        if ($request->boolean('async', true)) {
+            ProcessDocumentOcr::dispatch($document->id);
+            return back()->with('success', 'تم بدء استخراج النص (OCR) وسيظهر عند اكتماله');
+        }
+
+        // Synchronous fallback (not recommended for large files).
         ProcessDocumentOcr::dispatchSync($document->id);
 
         return back()->with('success', 'تم استخراج النص من المستند');
