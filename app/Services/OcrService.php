@@ -102,9 +102,10 @@ class OcrService
     {
         $lang = $this->mapLanguage($language);
         $maxPages = (int) (config('services.ocr.max_pages') ?? 10);
+        $dpi = (int) (config('services.ocr.dpi') ?? 300);
 
         if ($ext === 'pdf') {
-            return $this->extractFromPdfWithTesseract($fullPath, $lang, $maxPages);
+            return $this->extractFromPdfWithTesseract($fullPath, $lang, $maxPages, $dpi);
         }
 
         if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp'])) {
@@ -116,7 +117,7 @@ class OcrService
 
     protected function extractFromImageWithTesseract(string $fullPath, string $lang): ?string
     {
-        $p = new Process(['tesseract', $fullPath, 'stdout', '-l', $lang, '--psm', '3']);
+        $p = new Process(['tesseract', $fullPath, 'stdout', '-l', $lang, '--oem', '1', '--psm', '6', '-c', 'preserve_interword_spaces=1']);
         $p->setTimeout(120);
         $p->run();
 
@@ -129,8 +130,21 @@ class OcrService
         return $text !== '' ? $text : null;
     }
 
-    protected function extractFromPdfWithTesseract(string $fullPath, string $lang, int $maxPages): ?string
+    protected function extractFromPdfWithTesseract(string $fullPath, string $lang, int $maxPages, int $dpi): ?string
     {
+        // 1) If PDF already contains selectable text, extract it first (best quality).
+        $pdftotext = new Process(['pdftotext', '-layout', '-f', '1', '-l', (string) max(1, $maxPages), $fullPath, '-']);
+        $pdftotext->setTimeout(60);
+        $pdftotext->run();
+        if ($pdftotext->isSuccessful()) {
+            $txt = trim($pdftotext->getOutput());
+            if (mb_strlen($txt) >= 60) {
+                return $txt;
+            }
+        } else {
+            Log::warning('OCR(pdftotext) failed: ' . $pdftotext->getErrorOutput());
+        }
+
         $tmpDir = storage_path('app/ocr_tmp/' . uniqid('pdf_', true));
         if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
             Log::error("OCR: cannot create tmp dir: {$tmpDir}");
@@ -140,8 +154,17 @@ class OcrService
         try {
             $prefix = $tmpDir . '/page';
             // Convert first N pages to PNG using poppler (pdftoppm).
-            $convert = new Process(['pdftoppm', '-f', '1', '-l', (string) max(1, $maxPages), '-png', $fullPath, $prefix]);
-            $convert->setTimeout(180);
+            $convert = new Process([
+                'pdftoppm',
+                '-r', (string) max(150, $dpi),
+                '-gray',
+                '-f', '1',
+                '-l', (string) max(1, $maxPages),
+                '-png',
+                $fullPath,
+                $prefix,
+            ]);
+            $convert->setTimeout(240);
             $convert->run();
 
             if (!$convert->isSuccessful()) {
@@ -155,7 +178,31 @@ class OcrService
 
             $texts = [];
             foreach ($images as $img) {
-                $p = new Process(['tesseract', $img, 'stdout', '-l', $lang, '--psm', '3']);
+                // Light preprocessing (optional): normalize/threshold can help scanned docs.
+                $pre = $tmpDir . '/' . basename($img, '.png') . '-pre.png';
+                $magick = new Process([
+                    'magick',
+                    $img,
+                    '-deskew', '40%',
+                    '-normalize',
+                    '-sharpen', '0x1',
+                    '-threshold', '55%',
+                    $pre,
+                ]);
+                $magick->setTimeout(30);
+                $magick->run();
+
+                $inputForOcr = ($magick->isSuccessful() && file_exists($pre)) ? $pre : $img;
+
+                $p = new Process([
+                    'tesseract',
+                    $inputForOcr,
+                    'stdout',
+                    '-l', $lang,
+                    '--oem', '1',
+                    '--psm', '6',
+                    '-c', 'preserve_interword_spaces=1',
+                ]);
                 $p->setTimeout(120);
                 $p->run();
                 if ($p->isSuccessful()) {
