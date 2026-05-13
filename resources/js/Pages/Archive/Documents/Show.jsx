@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import { QRCodeSVG } from 'qrcode.react';
