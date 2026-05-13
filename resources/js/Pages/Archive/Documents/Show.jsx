@@ -177,7 +177,7 @@ export default function ShowDocument({ document }) {
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
     const isPdf = ext === 'pdf';
     const isOffice = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(ext);
-    const ocrSupported = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'docx', 'doc', 'txt'].includes(ext);
+    const ocrSupported = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp', 'docx', 'doc', 'xlsx', 'xls', 'txt'].includes(ext);
 
     const runOcr = ({ force = false } = {}) => {
         setRunningOcr(true);

@@ -22,7 +22,14 @@ class ProcessDocumentOcr implements ShouldQueue
         $doc = ArchiveDocument::find($this->documentId);
         if (!$doc) return;
 
-        $supportedExt = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'docx', 'doc', 'txt'];
+        // Supported extensions for text extraction / OCR.
+        $supportedExt = [
+            'pdf',
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp',
+            'docx', 'doc',
+            'xlsx', 'xls',
+            'txt',
+        ];
         if (!in_array(strtolower($doc->file_extension), $supportedExt)) {
             return;
         }
