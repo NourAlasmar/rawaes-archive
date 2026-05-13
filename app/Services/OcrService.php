@@ -35,11 +35,23 @@ class OcrService
             return $this->extractFromWord($filePath);
         }
 
+        if (in_array($ext, ['xlsx', 'xls'])) {
+            return $this->extractFromExcel($filePath);
+        }
+
         if ($ext === 'txt') {
             return Storage::disk('local')->get($filePath);
         }
 
-        // OCR for images and PDF
+        // PDF: if it contains selectable text, extract directly; otherwise run OCR.
+        if ($ext === 'pdf') {
+            $fullPath = Storage::disk('local')->path($filePath);
+            $text = $this->extractPdfText($fullPath, (int) (config('services.ocr.max_pages') ?? 10));
+            if ($text) return $text;
+            return $this->extractLocally($fullPath, $ext, $language);
+        }
+
+        // OCR for images
         try {
             $fullPath = Storage::disk('local')->path($filePath);
             $fileSize = filesize($fullPath);
@@ -98,6 +110,22 @@ class OcrService
         }
     }
 
+    protected function extractPdfText(string $fullPath, int $maxPages): ?string
+    {
+        // If PDF already contains selectable text, extract it (best quality).
+        $pdftotext = new Process(['pdftotext', '-layout', '-f', '1', '-l', (string) max(1, $maxPages), $fullPath, '-']);
+        $pdftotext->setTimeout(60);
+        $pdftotext->run();
+        if ($pdftotext->isSuccessful()) {
+            $txt = trim($pdftotext->getOutput());
+            // Avoid returning noise for image-only PDFs.
+            if (mb_strlen($txt) >= 60) return $txt;
+        } else {
+            Log::warning('OCR(pdftotext) failed: ' . $pdftotext->getErrorOutput());
+        }
+        return null;
+    }
+
     protected function extractLocally(string $fullPath, string $ext, string $language): ?string
     {
         $lang = $this->mapLanguage($language);
@@ -105,6 +133,9 @@ class OcrService
         $dpi = (int) (config('services.ocr.dpi') ?? 300);
 
         if ($ext === 'pdf') {
+            // If it has text, extract it; else OCR.
+            $txt = $this->extractPdfText($fullPath, $maxPages);
+            if ($txt) return $txt;
             return $this->extractFromPdfWithTesseract($fullPath, $lang, $maxPages, $dpi);
         }
 
@@ -216,19 +247,6 @@ class OcrService
 
     protected function extractFromPdfWithTesseract(string $fullPath, string $lang, int $maxPages, int $dpi): ?string
     {
-        // 1) If PDF already contains selectable text, extract it first (best quality).
-        $pdftotext = new Process(['pdftotext', '-layout', '-f', '1', '-l', (string) max(1, $maxPages), $fullPath, '-']);
-        $pdftotext->setTimeout(60);
-        $pdftotext->run();
-        if ($pdftotext->isSuccessful()) {
-            $txt = trim($pdftotext->getOutput());
-            if (mb_strlen($txt) >= 60) {
-                return $txt;
-            }
-        } else {
-            Log::warning('OCR(pdftotext) failed: ' . $pdftotext->getErrorOutput());
-        }
-
         $tmpDir = storage_path('app/ocr_tmp/' . uniqid('pdf_', true));
         if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
             Log::error("OCR: cannot create tmp dir: {$tmpDir}");
@@ -330,6 +348,47 @@ class OcrService
             return $text ? trim(implode("\n", $text)) : null;
         } catch (\Throwable $e) {
             Log::error('Word extraction error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract text from XLSX/XLS using PhpSpreadsheet (no OCR).
+     */
+    protected function extractFromExcel(string $filePath): ?string
+    {
+        try {
+            $fullPath = Storage::disk('local')->path($filePath);
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($fullPath);
+
+            $lines = [];
+            foreach ($spreadsheet->getWorksheetIterator() as $sheet) {
+                $sheetTitle = $sheet->getTitle();
+                $lines[] = "=== Sheet: {$sheetTitle} ===";
+
+                $highestRow = min(5000, (int) $sheet->getHighestDataRow());
+                $highestCol = $sheet->getHighestDataColumn();
+
+                // Read as formatted strings.
+                for ($row = 1; $row <= $highestRow; $row++) {
+                    $rowVals = $sheet->rangeToArray("A{$row}:{$highestCol}{$row}", null, true, true, true);
+                    $rowVals = $rowVals[0] ?? [];
+                    $cells = [];
+                    foreach ($rowVals as $v) {
+                        $str = is_scalar($v) ? trim((string) $v) : '';
+                        $cells[] = $str;
+                    }
+                    // Skip empty rows
+                    if (implode('', $cells) === '') continue;
+                    $lines[] = implode("\t", $cells);
+                    if (count($lines) >= 20000) break 2; // safety
+                }
+            }
+
+            $text = trim(implode("\n", $lines));
+            return $text !== '' ? $text : null;
+        } catch (\Throwable $e) {
+            Log::error('Excel extraction error: ' . $e->getMessage());
             return null;
         }
     }
