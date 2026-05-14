@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('archive_document_movements')) {
+            return;
+        }
+
         Schema::create('archive_document_movements', function (Blueprint $table) {
             $table->id();
             $table->foreignId('document_id')->constrained('archive_documents')->cascadeOnDelete();
@@ -26,4 +30,3 @@ return new class extends Migration
         Schema::dropIfExists('archive_document_movements');
     }
 };
-
