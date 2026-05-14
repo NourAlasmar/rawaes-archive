@@ -1046,13 +1046,12 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                         </div>
 
                         <div>
-                            <label className="block text-xs font-extrabold text-gray-700 mb-1.5">اسم الملف</label>
+                            <label className="block text-xs font-extrabold text-gray-700 mb-1.5">اسم الترميز (اختياري)</label>
                             <input
                                 value={createData.name}
                                 onChange={(e) => setCreateData(d => ({ ...d, name: e.target.value }))}
                                 className="w-full rounded-xl border-gray-200 focus:border-amber-500 focus:ring-amber-500"
-                                placeholder="مثال: ملف عقود 2026 (صندوق 3)"
-                                required
+                                placeholder="اتركه فارغاً ليأخذ مسار المجلد تلقائياً"
                                 disabled={!canManage}
                             />
                         </div>

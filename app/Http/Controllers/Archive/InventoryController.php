@@ -58,7 +58,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'sector_id' => 'required|exists:sectors,id',
             'document_folder_id' => 'required|exists:document_folders,id',
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'location' => 'nullable|string|max:255',
         ]);
@@ -69,7 +69,25 @@ class InventoryController extends Controller
             abort(422, 'المجلد لا يتبع القطاع المحدد');
         }
 
-        $folder = PhysicalFolder::create($validated);
+        $data = $validated;
+        $data['inventory_code'] = $data['inventory_code'] ?? PhysicalFolder::generateInventoryCode();
+
+        $name = trim((string) ($data['name'] ?? ''));
+        if ($name === '') {
+            $parts = [];
+            $cur = DocumentFolder::select(['id', 'name', 'parent_id'])->find($data['document_folder_id']);
+            $guard = 0;
+            while ($cur && $guard++ < 25) {
+                array_unshift($parts, $cur->name);
+                $cur = $cur->parent_id ? DocumentFolder::select(['id', 'name', 'parent_id'])->find($cur->parent_id) : null;
+            }
+            $path = trim(implode(' / ', array_filter($parts)));
+            $data['name'] = $path !== '' ? $path : ('ترميز ' . $data['inventory_code']);
+        } else {
+            $data['name'] = $name;
+        }
+
+        $folder = PhysicalFolder::create($data);
 
         AuditLog::record('create_folder', $folder, [], $folder->toArray(), "إنشاء مجلد (الجرد): {$folder->name}");
 
