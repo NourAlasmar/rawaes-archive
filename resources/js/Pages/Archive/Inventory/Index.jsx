@@ -15,6 +15,31 @@ function formatDate(value) {
     }
 }
 
+function buildFolderPathMap(documentFolders) {
+    const byId = new Map((documentFolders ?? []).map(f => [String(f.id), f]));
+    const cache = new Map();
+
+    const getPath = (id) => {
+        const key = String(id);
+        if (cache.has(key)) return cache.get(key);
+        const node = byId.get(key);
+        if (!node) return '';
+        const parts = [];
+        let cur = node;
+        const guard = new Set();
+        while (cur && !guard.has(String(cur.id))) {
+            guard.add(String(cur.id));
+            parts.unshift(cur.name);
+            cur = cur.parent_id ? byId.get(String(cur.parent_id)) : null;
+        }
+        const path = parts.join(' / ');
+        cache.set(key, path);
+        return path;
+    };
+
+    return { getPath };
+}
+
 function Modal({ open, title, children, onClose }) {
     if (!open) return null;
     return (
@@ -34,7 +59,7 @@ function Modal({ open, title, children, onClose }) {
 }
 
 export default function InventoryIndex({ sectors, physicalFolders, documentFolders, canManage }) {
-    const [tab, setTab] = useState('inventory'); // inventory | custody
+    const [tab, setTab] = useState('inventory'); // inventory | custody | archive_inventory
     const [folders, setFolders] = useState(physicalFolders ?? []);
     const [loadingList, setLoadingList] = useState(false);
 
@@ -50,13 +75,17 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
     const [createError, setCreateError] = useState(null);
 
     const classificationOptions = useMemo(() => {
+        const { getPath } = buildFolderPathMap(documentFolders);
         const sectorId = String(createData.sector_id || '');
         const list = documentFolders ?? [];
-        const filtered = sectorId ? list.filter(f => String(f.sector_id) === sectorId) : list;
-        return filtered.map(f => ({ id: f.id, name: f.name }));
+        const filtered = sectorId ? list.filter(f => String(f.sector_id) === sectorId) : [];
+        return filtered
+            .map(f => ({ id: f.id, name: getPath(f.id) || f.name }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
     }, [documentFolders, createData.sector_id]);
 
     const [sectorFilter, setSectorFilter] = useState('');
+    const [folderFilter, setFolderFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // all | available | checkedout
     const [search, setSearch] = useState('');
 
@@ -64,6 +93,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
         const q = search.trim().toLowerCase();
         return (folders ?? []).filter(f => {
             if (sectorFilter && String(f.sector_id) !== String(sectorFilter)) return false;
+            if (folderFilter && String(f.document_folder_id) !== String(folderFilter)) return false;
             if (statusFilter === 'available' && f.is_checked_out) return false;
             if (statusFilter === 'checkedout' && !f.is_checked_out) return false;
             if (!q) return true;
@@ -79,7 +109,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
             ].filter(Boolean).join(' ').toLowerCase();
             return hay.includes(q);
         });
-    }, [folders, sectorFilter, statusFilter, search]);
+    }, [folders, sectorFilter, folderFilter, statusFilter, search]);
 
     const [code, setCode] = useState('');
     const [lookup, setLookup] = useState({ loading: false, result: null, error: null });
@@ -487,7 +517,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                     }`}
                 >
                     <ClipboardList size={16} />
-                    الجرد
+                    الترميز
                 </button>
                 <button
                     onClick={() => setTab('custody')}
@@ -891,7 +921,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 {/* Left: Create folder */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-1">
                     <div className="flex items-center gap-2 mb-4">
@@ -899,8 +929,8 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                             <FolderPlus size={18} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-800">إنشاء ملف ورقي</h3>
-                            <p className="text-xs text-gray-500">سيتم توليد كود قصير + QR للصق على الملف</p>
+                            <h3 className="font-bold text-gray-800">الترميز (ملفات ورقية)</h3>
+                            <p className="text-xs text-gray-500">إنشاء ملف ورقي مربوط بالقطاع/المجلد + توليد كود و QR</p>
                         </div>
                     </div>
 
@@ -920,7 +950,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                     className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                     disabled={!canManage}
                                 >
-                                    <option value="">بدون</option>
+                                    <option value="">اختر</option>
                                     {sectors?.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
@@ -928,14 +958,14 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5">تصنيف النظام (اختياري)</label>
+                                <label className="block text-xs font-bold text-gray-700 mb-1.5">المجلد (رئيسي/فرعي)</label>
                                 <select
                                     value={createData.document_folder_id}
                                     onChange={(e) => setCreateData(d => ({ ...d, document_folder_id: e.target.value }))}
                                     className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                     disabled={!canManage}
                                 >
-                                    <option value="">بدون</option>
+                                    <option value="">اختر</option>
                                     {classificationOptions.map(p => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
@@ -986,7 +1016,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
 
                         <button
                             type="submit"
-                            disabled={creating || !canManage}
+                            disabled={creating || !canManage || !createData.sector_id || !createData.document_folder_id}
                             className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-lg py-2.5 transition-colors"
                         >
                             <FolderPlus size={16} />
@@ -1020,7 +1050,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                 {/* Right: Table + Scan */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-2">
                     <div className="flex flex-col lg:flex-row lg:items-end gap-3 mb-4">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">بحث</label>
                                 <input
@@ -1034,13 +1064,32 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                 <label className="block text-xs font-bold text-gray-700 mb-1.5">القطاع</label>
                                 <select
                                     value={sectorFilter}
-                                    onChange={(e) => setSectorFilter(e.target.value)}
+                                    onChange={(e) => { setSectorFilter(e.target.value); setFolderFilter(''); }}
                                     className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                 >
                                     <option value="">الكل</option>
                                     {sectors?.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1.5">المجلد</label>
+                                <select
+                                    value={folderFilter}
+                                    onChange={(e) => setFolderFilter(e.target.value)}
+                                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                    disabled={!sectorFilter}
+                                >
+                                    <option value="">الكل</option>
+                                    {(() => {
+                                        const { getPath } = buildFolderPathMap(documentFolders);
+                                        return (documentFolders ?? [])
+                                            .filter(f => String(f.sector_id) === String(sectorFilter))
+                                            .map(f => ({ id: f.id, name: getPath(f.id) || f.name }))
+                                            .sort((a, b) => a.name.localeCompare(b.name, 'ar'))
+                                            .map(f => <option key={f.id} value={f.id}>{f.name}</option>);
+                                    })()}
                                 </select>
                             </div>
                             <div>

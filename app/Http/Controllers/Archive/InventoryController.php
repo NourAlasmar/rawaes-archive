@@ -56,8 +56,8 @@ class InventoryController extends Controller
         abort_unless($request->user()?->can('inventory.manage'), 403);
 
         $validated = $request->validate([
-            'sector_id' => 'nullable|exists:sectors,id',
-            'document_folder_id' => 'nullable|exists:document_folders,id',
+            'sector_id' => 'required|exists:sectors,id',
+            'document_folder_id' => 'required|exists:document_folders,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'location' => 'nullable|string|max:255',
