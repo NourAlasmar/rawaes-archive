@@ -5,6 +5,7 @@ import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { BrowserQRCodeReader } from '@zxing/browser';
 import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText, Printer, Pencil, PackageCheck, Pause, Play, Flag, FileDown } from 'lucide-react';
+import { Combobox } from '@headlessui/react';
 
 function formatDate(value) {
     if (!value) return '';
@@ -38,6 +39,10 @@ function buildFolderPathMap(documentFolders) {
     };
 
     return { getPath };
+}
+
+function classNames(...xs) {
+    return xs.filter(Boolean).join(' ');
 }
 
 function Modal({ open, title, children, onClose }) {
@@ -80,9 +85,21 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
         const list = documentFolders ?? [];
         const filtered = sectorId ? list.filter(f => String(f.sector_id) === sectorId) : [];
         return filtered
-            .map(f => ({ id: f.id, name: getPath(f.id) || f.name }))
+            .map(f => ({ id: f.id, name: getPath(f.id) || f.name, raw: f }))
             .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
     }, [documentFolders, createData.sector_id]);
+
+    const selectedClassification = useMemo(() => {
+        if (!createData.document_folder_id) return null;
+        return classificationOptions.find(o => String(o.id) === String(createData.document_folder_id)) ?? null;
+    }, [classificationOptions, createData.document_folder_id]);
+
+    const [folderQuery, setFolderQuery] = useState('');
+    const filteredClassificationOptions = useMemo(() => {
+        const q = folderQuery.trim().toLowerCase();
+        if (!q) return classificationOptions;
+        return classificationOptions.filter(o => (o.name ?? '').toLowerCase().includes(q));
+    }, [classificationOptions, folderQuery]);
 
     const [sectorFilter, setSectorFilter] = useState('');
     const [folderFilter, setFolderFilter] = useState('');
@@ -495,13 +512,13 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                         <ClipboardList size={22} className="text-white" />
                     </div>
                     <div className="flex-1">
-                        <h2 className="font-bold text-gray-800 text-lg">الجرد</h2>
-                        <p className="text-sm text-gray-600">عرض كل المجلدات + QR والكود القصير + تسليم/استلام</p>
+                        <h2 className="font-bold text-gray-900 text-lg">إدارة الأرشيف</h2>
+                        <p className="text-sm text-gray-700">ترميز الملفات الورقية + العهد + جرد الأرشيف</p>
                     </div>
                     <button
                         onClick={refreshList}
                         disabled={loadingList}
-                        className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 disabled:opacity-50"
+                        className="inline-flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 disabled:opacity-50"
                     >
                         <RefreshCcw size={14} />
                         تحديث
@@ -923,15 +940,18 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
             ) : (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                 {/* Left: Create folder */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-1">
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="p-2 bg-amber-500 rounded-xl text-white">
-                            <FolderPlus size={18} />
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-1 xl:sticky xl:top-5 h-fit">
+                    <div className="flex items-start justify-between gap-3 mb-5">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 bg-amber-500 rounded-xl text-white">
+                                <FolderPlus size={18} />
+                            </div>
+                            <div>
+                                <h3 className="font-extrabold text-gray-900">ترميز ملف ورقي</h3>
+                                <p className="text-xs text-gray-500">اختيار القطاع + المجلد ثم إنشاء كود و QR</p>
+                            </div>
                         </div>
-                        <div>
-                            <h3 className="font-bold text-gray-800">الترميز (ملفات ورقية)</h3>
-                            <p className="text-xs text-gray-500">إنشاء ملف ورقي مربوط بالقطاع/المجلد + توليد كود و QR</p>
-                        </div>
+                        <div className="text-[11px] text-gray-400 mt-1">QR = Code</div>
                     </div>
 
                     {!canManage && (
@@ -940,17 +960,17 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                         </div>
                     )}
 
-                    <form onSubmit={createFolder} className="space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <form onSubmit={createFolder} className="space-y-4">
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50/60 p-4 space-y-3">
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5">القطاع</label>
+                                <label className="block text-xs font-extrabold text-gray-700 mb-1.5">القطاع</label>
                                 <select
                                     value={createData.sector_id}
-                                    onChange={(e) => setCreateData(d => ({ ...d, sector_id: e.target.value, document_folder_id: '' }))}
-                                    className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                                    onChange={(e) => { setCreateData(d => ({ ...d, sector_id: e.target.value, document_folder_id: '' })); setFolderQuery(''); }}
+                                    className="w-full rounded-xl border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                     disabled={!canManage}
                                 >
-                                    <option value="">اختر</option>
+                                    <option value="">اختر القطاع</option>
                                     {sectors?.map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
@@ -958,50 +978,80 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5">المجلد (رئيسي/فرعي)</label>
-                                <select
-                                    value={createData.document_folder_id}
-                                    onChange={(e) => setCreateData(d => ({ ...d, document_folder_id: e.target.value }))}
-                                    className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
-                                    disabled={!canManage}
+                                <label className="block text-xs font-extrabold text-gray-700 mb-1.5">المجلد (رئيسي/فرعي)</label>
+                                <Combobox
+                                    value={selectedClassification}
+                                    onChange={(opt) => setCreateData(d => ({ ...d, document_folder_id: opt?.id ? String(opt.id) : '' }))}
+                                    disabled={!canManage || !createData.sector_id}
                                 >
-                                    <option value="">اختر</option>
-                                    {classificationOptions.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
+                                    <div className="relative">
+                                        <Combobox.Input
+                                            className="w-full rounded-xl border-gray-200 focus:border-amber-500 focus:ring-amber-500 pr-3 pl-10 py-2 text-sm disabled:bg-gray-50"
+                                            displayValue={(opt) => opt?.name ?? ''}
+                                            onChange={(event) => setFolderQuery(event.target.value)}
+                                            placeholder={createData.sector_id ? 'ابحث واختر المجلد...' : 'اختر القطاع أولاً'}
+                                        />
+                                        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                            <Search size={16} />
+                                        </div>
+
+                                        <Combobox.Options className="absolute z-20 mt-2 max-h-72 w-full overflow-auto rounded-2xl bg-white p-1 shadow-xl border border-gray-100 focus:outline-none">
+                                            {filteredClassificationOptions.length === 0 ? (
+                                                <div className="px-3 py-3 text-sm text-gray-500">لا توجد نتائج</div>
+                                            ) : (
+                                                filteredClassificationOptions.slice(0, 200).map((opt) => (
+                                                    <Combobox.Option
+                                                        key={opt.id}
+                                                        value={opt}
+                                                        className={({ active }) =>
+                                                            classNames(
+                                                                'cursor-pointer select-none rounded-xl px-3 py-2 text-sm',
+                                                                active ? 'bg-amber-50 text-amber-900' : 'text-gray-800'
+                                                            )
+                                                        }
+                                                    >
+                                                        <div className="font-medium">{opt.name}</div>
+                                                    </Combobox.Option>
+                                                ))
+                                            )}
+                                        </Combobox.Options>
+                                    </div>
+                                </Combobox>
+                                {createData.sector_id && classificationOptions.length > 200 && (
+                                    <div className="text-[11px] text-gray-400 mt-1">يتم عرض أول 200 نتيجة — استخدم البحث</div>
+                                )}
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1.5">اسم الملف</label>
+                            <label className="block text-xs font-extrabold text-gray-700 mb-1.5">اسم الملف</label>
                             <input
                                 value={createData.name}
                                 onChange={(e) => setCreateData(d => ({ ...d, name: e.target.value }))}
-                                className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
-                                placeholder="مثال: ملف عقود 2026"
+                                className="w-full rounded-xl border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                                placeholder="مثال: ملف عقود 2026 (صندوق 3)"
                                 required
                                 disabled={!canManage}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1.5">الموقع (اختياري)</label>
+                            <label className="block text-xs font-extrabold text-gray-700 mb-1.5">الموقع (اختياري)</label>
                             <input
                                 value={createData.location}
                                 onChange={(e) => setCreateData(d => ({ ...d, location: e.target.value }))}
-                                className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                                className="w-full rounded-xl border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                 placeholder="مثال: غرفة 2 / رف A / صندوق 7"
                                 disabled={!canManage}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1.5">ملاحظات/وصف (اختياري)</label>
+                            <label className="block text-xs font-extrabold text-gray-700 mb-1.5">ملاحظات (اختياري)</label>
                             <textarea
                                 value={createData.description}
                                 onChange={(e) => setCreateData(d => ({ ...d, description: e.target.value }))}
-                                className="w-full rounded-lg border-gray-200 focus:border-amber-500 focus:ring-amber-500"
+                                className="w-full rounded-xl border-gray-200 focus:border-amber-500 focus:ring-amber-500"
                                 rows={2}
                                 placeholder="ماذا يحتوي هذا الملف؟"
                                 disabled={!canManage}
@@ -1017,7 +1067,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                         <button
                             type="submit"
                             disabled={creating || !canManage || !createData.sector_id || !createData.document_folder_id}
-                            className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-lg py-2.5 transition-colors"
+                            className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold rounded-xl py-3 transition-colors shadow-sm"
                         >
                             <FolderPlus size={16} />
                             {creating ? 'جاري الإنشاء...' : 'إنشاء'}
@@ -1065,7 +1115,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                 <select
                                     value={sectorFilter}
                                     onChange={(e) => { setSectorFilter(e.target.value); setFolderFilter(''); }}
-                                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                 >
                                     <option value="">الكل</option>
                                     {sectors?.map(s => (
@@ -1078,7 +1128,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                 <select
                                     value={folderFilter}
                                     onChange={(e) => setFolderFilter(e.target.value)}
-                                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                     disabled={!sectorFilter}
                                 >
                                     <option value="">الكل</option>
@@ -1097,7 +1147,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="w-full rounded-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                 >
                                     <option value="all">الكل</option>
                                     <option value="available">متاح</option>
