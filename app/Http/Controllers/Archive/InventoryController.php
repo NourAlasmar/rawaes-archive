@@ -63,6 +63,12 @@ class InventoryController extends Controller
             'location' => 'nullable|string|max:255',
         ]);
 
+        // Ensure the selected system folder belongs to the chosen sector.
+        $folderSectorId = DocumentFolder::whereKey($validated['document_folder_id'])->value('sector_id');
+        if ($folderSectorId && (int) $folderSectorId !== (int) $validated['sector_id']) {
+            abort(422, 'المجلد لا يتبع القطاع المحدد');
+        }
+
         $folder = PhysicalFolder::create($validated);
 
         AuditLog::record('create_folder', $folder, [], $folder->toArray(), "إنشاء مجلد (الجرد): {$folder->name}");
