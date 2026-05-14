@@ -4,7 +4,7 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { BrowserQRCodeReader } from '@zxing/browser';
-import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText, Printer, Pencil, PackageCheck, Pause, Play, Flag, FileDown } from 'lucide-react';
+import { Camera, FolderPlus, Search, XCircle, ClipboardList, Hand, Handshake, RefreshCcw, ScrollText, Printer, Pencil, Trash2, PackageCheck, Pause, Play, Flag, FileDown } from 'lucide-react';
 import { Combobox } from '@headlessui/react';
 
 function formatDate(value) {
@@ -140,6 +140,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
     const [checkoutModal, setCheckoutModal] = useState({ open: false, folder: null });
     const [checkinModal, setCheckinModal] = useState({ open: false, folder: null });
     const [editModal, setEditModal] = useState({ open: false, folder: null });
+    const [deleteModal, setDeleteModal] = useState({ open: false, folder: null });
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState(null);
     const [checkoutForm, setCheckoutForm] = useState({ to_person: '', notes: '' });
@@ -422,6 +423,27 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
             is_active: folder?.is_active ?? true,
         });
         setEditModal({ open: true, folder });
+    };
+
+    const openDelete = (folder) => {
+        setActionError(null);
+        setDeleteModal({ open: true, folder });
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteModal.folder) return;
+        setActionLoading(true);
+        setActionError(null);
+        try {
+            const res = await axios.delete(`/archive/api/inventory/folders/${deleteModal.folder.id}`);
+            const deletedId = res?.data?.deleted_id ?? deleteModal.folder.id;
+            setFolders(prev => (prev ?? []).filter(x => x.id !== deletedId));
+            setDeleteModal({ open: false, folder: null });
+        } catch (e) {
+            setActionError(e?.response?.data?.message ?? 'فشل الحذف');
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const submitCheckout = async () => {
@@ -1330,6 +1352,19 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                                     <span className="text-xs text-gray-400">—</span>
                                                 )}
                                             </td>
+                                            <td className="p-3">
+                                                {canManage ? (
+                                                    <button
+                                                        onClick={() => openDelete(f)}
+                                                        className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-red-200 text-red-700 hover:bg-red-50"
+                                                        title="حذف الترميز"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">—</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))
                                 )}
@@ -1339,6 +1374,41 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                 </div>
             </div>
             )}
+
+            <Modal
+                open={deleteModal.open}
+                title={`حذف ترميز: ${deleteModal.folder?.name ?? ''}`}
+                onClose={() => setDeleteModal({ open: false, folder: null })}
+            >
+                {actionError && (
+                    <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3 mb-3">
+                        {actionError}
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                    <div className="text-sm text-gray-700">
+                        سيتم حذف هذا الترميز نهائياً. (لن يؤثر على مجلدات النظام، فقط هذا السجل الخاص بالترميز)
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setDeleteModal({ open: false, folder: null })}
+                            className="flex-1 inline-flex items-center justify-center rounded-xl border border-gray-200 py-2.5 font-bold text-gray-700 hover:bg-gray-50"
+                            disabled={actionLoading}
+                        >
+                            إلغاء
+                        </button>
+                        <button
+                            onClick={confirmDelete}
+                            className="flex-1 inline-flex items-center justify-center rounded-xl bg-red-600 hover:bg-red-700 py-2.5 font-bold text-white disabled:opacity-50"
+                            disabled={actionLoading}
+                        >
+                            {actionLoading ? 'جاري الحذف...' : 'حذف'}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             <Modal
                 open={startAuditModal}

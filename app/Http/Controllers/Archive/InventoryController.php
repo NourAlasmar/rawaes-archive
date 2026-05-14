@@ -219,6 +219,25 @@ class InventoryController extends Controller
         ], 200);
     }
 
+    public function destroy(Request $request, PhysicalFolder $folder)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+
+        if ($folder->is_checked_out) {
+            return response()->json(['message' => 'لا يمكن حذف ملف مُسلّم. قم بالاستلام أولاً.'], 422);
+        }
+
+        $snapshot = $folder->toArray();
+        $id = $folder->id;
+        $name = $folder->name;
+
+        AuditLog::record('inventory_delete_physical_folder', $folder, $snapshot, [], "حذف ملف ورقي (الترميز): {$name}");
+
+        $folder->delete();
+
+        return response()->json(['deleted_id' => $id], 200);
+    }
+
     public function checkout(Request $request, PhysicalFolder $folder)
     {
         abort_unless($request->user()?->can('inventory.manage'), 403);
