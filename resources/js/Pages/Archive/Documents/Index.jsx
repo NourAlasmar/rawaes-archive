@@ -125,15 +125,14 @@ function DocumentRow({ doc, can }) {
                             {can['documents.create'] && (
                                 <button
                                     onClick={() => setCustodyOpen(true)}
-                                    className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
-                                        isCheckedOut ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-red-200 text-red-700 hover:bg-red-50'
+                                    className={`p-1.5 rounded transition-colors ${
+                                        isCheckedOut
+                                            ? 'hover:bg-emerald-50 text-emerald-700'
+                                            : 'hover:bg-red-50 text-red-700'
                                     }`}
                                     title={isCheckedOut ? 'استلام عهدة' : 'تسليم عهدة'}
                                 >
-                                    <span className="inline-flex items-center gap-1.5">
-                                        {isCheckedOut ? <Hand size={14} /> : <Handshake size={14} />}
-                                        {isCheckedOut ? 'استلام' : 'تسليم عهدة'}
-                                    </span>
+                                    {isCheckedOut ? <Hand size={16} /> : <Handshake size={16} />}
                                 </button>
                             )}
                             <Link
