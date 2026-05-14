@@ -4,7 +4,7 @@ import ArchiveLayout from '@/Layouts/ArchiveLayout';
 import {
     Search, Filter, Download, Eye, Edit2, Trash2,
     FileText, AlertTriangle, Clock, CheckCircle,
-    ChevronLeft, ChevronRight, MoreVertical, Upload
+    ChevronLeft, ChevronRight, MoreVertical, Upload, Handshake, Hand
 } from 'lucide-react';
 
 const statusColors = {
@@ -23,14 +23,40 @@ const statusLabels = {
 
 function DocumentRow({ doc, can }) {
     const [menuOpen, setMenuOpen] = useState(false);
+    const [custodyOpen, setCustodyOpen] = useState(false);
+    const [custodyTo, setCustodyTo] = useState('');
+    const [custodyNotes, setCustodyNotes] = useState('');
+    const [custodyProcessing, setCustodyProcessing] = useState(false);
 
     const isExpired = doc.is_expired;
     const isExpiringSoon = doc.is_expiring_soon;
     const isDeleted = !!doc.deleted_at;
     const sourceLabel = doc.upload_source === 'scanner' ? 'ورقي' : 'إلكتروني';
+    const isCheckedOut = !!doc.is_checked_out;
+
+    const submitCustody = () => {
+        if (!isCheckedOut && !custodyTo.trim()) return;
+        setCustodyProcessing(true);
+        const url = isCheckedOut
+            ? `/archive/documents/${doc.id}/custody/checkin`
+            : `/archive/documents/${doc.id}/custody/checkout`;
+        const payload = isCheckedOut
+            ? { notes: custodyNotes || null }
+            : { to_person: custodyTo, notes: custodyNotes || null };
+
+        router.post(url, payload, {
+            preserveScroll: true,
+            onFinish: () => setCustodyProcessing(false),
+            onSuccess: () => {
+                setCustodyOpen(false);
+                setCustodyTo('');
+                setCustodyNotes('');
+            },
+        });
+    };
 
     return (
-        <tr className="hover:bg-gray-50 transition-colors">
+        <tr className={`${isCheckedOut ? 'bg-red-50 text-red-900' : ''} hover:bg-gray-50 transition-colors`}>
             <td className="px-4 py-3 text-sm text-gray-600 font-mono" dir="ltr">
                 {isDeleted ? (
                     <span className="text-red-600 line-through">
@@ -96,6 +122,20 @@ function DocumentRow({ doc, can }) {
                     <td className="px-4 py-3 text-sm text-gray-500">{doc.uploader?.name ?? '—'}</td>
                     <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                            {can['documents.create'] && (
+                                <button
+                                    onClick={() => setCustodyOpen(true)}
+                                    className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                        isCheckedOut ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50' : 'border-red-200 text-red-700 hover:bg-red-50'
+                                    }`}
+                                    title={isCheckedOut ? 'استلام عهدة' : 'تسليم عهدة'}
+                                >
+                                    <span className="inline-flex items-center gap-1.5">
+                                        {isCheckedOut ? <Hand size={14} /> : <Handshake size={14} />}
+                                        {isCheckedOut ? 'استلام' : 'تسليم عهدة'}
+                                    </span>
+                                </button>
+                            )}
                             <Link
                                 href={`/archive/documents/${doc.id}`}
                                 className="p-1.5 rounded hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors"
@@ -133,6 +173,57 @@ function DocumentRow({ doc, can }) {
                                 </button>
                             )}
                         </div>
+
+                        {custodyOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCustodyOpen(false)}>
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="font-bold text-gray-800 text-sm">
+                                            {isCheckedOut ? 'استلام عهدة مستند' : 'تسليم عهدة مستند'}: {doc.title}
+                                        </h3>
+                                        <button onClick={() => setCustodyOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                                    </div>
+
+                                    {isCheckedOut ? (
+                                        <div className="text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg p-3 mb-3">
+                                            تم تسليمه إلى: <span className="font-bold">{doc.checked_out_to ?? '—'}</span>
+                                            {doc.checked_out_at ? <span className="text-gray-500"> — {doc.checked_out_at}</span> : null}
+                                        </div>
+                                    ) : (
+                                        <div className="mb-3">
+                                            <label className="block text-xs font-bold text-gray-700 mb-1.5">تم تسليمه إلى</label>
+                                            <input
+                                                value={custodyTo}
+                                                onChange={(e) => setCustodyTo(e.target.value)}
+                                                className="w-full rounded-lg border-gray-200 focus:border-red-500 focus:ring-red-500"
+                                                placeholder="اسم الشخص/الجهة"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1.5">ملاحظات (اختياري)</label>
+                                        <textarea
+                                            value={custodyNotes}
+                                            onChange={(e) => setCustodyNotes(e.target.value)}
+                                            className="w-full rounded-lg border-gray-200 focus:ring-amber-500 focus:border-amber-500"
+                                            rows={3}
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={submitCustody}
+                                        disabled={custodyProcessing || (!isCheckedOut && !custodyTo.trim())}
+                                        className={`mt-4 w-full inline-flex items-center justify-center gap-2 font-bold rounded-lg py-2.5 disabled:opacity-50 ${
+                                            isCheckedOut ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
+                                        }`}
+                                    >
+                                        {isCheckedOut ? <Hand size={16} /> : <Handshake size={16} />}
+                                        {custodyProcessing ? '...' : (isCheckedOut ? 'تأكيد الاستلام' : 'تأكيد التسليم')}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </td>
                 </>
             )}

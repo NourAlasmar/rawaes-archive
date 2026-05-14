@@ -54,6 +54,8 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::get('/documents/{document}/preview', [DocumentController::class, 'preview'])->name('documents.preview');
     Route::post('/documents/{document}/ocr', [DocumentController::class, 'runOcr'])->name('documents.ocr');
     Route::post('/documents/{document}/email', [DocumentController::class, 'email'])->name('documents.email');
+    Route::post('/documents/{document}/custody/checkout', [DocumentController::class, 'custodyCheckout'])->name('documents.custody.checkout');
+    Route::post('/documents/{document}/custody/checkin', [DocumentController::class, 'custodyCheckin'])->name('documents.custody.checkin');
 
     // Trash (soft-deleted documents)
     Route::get('/trash/documents', [TrashController::class, 'index'])->name('documents.trash');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Archive;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
+use App\Models\ArchiveDocumentMovement;
 use App\Models\InventoryAudit;
 use App\Models\InventoryAuditItem;
 use App\Models\PhysicalFolder;
@@ -286,60 +287,120 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'q' => 'nullable|string|max:255',
             'action' => 'nullable|in:checkout,checkin',
+            'type' => 'nullable|in:physical_folder,document',
             'per_page' => 'nullable|integer|min:5|max:200',
+            'page' => 'nullable|integer|min:1',
         ]);
 
         $perPage = (int) ($validated['per_page'] ?? 50);
         $q = trim((string) ($validated['q'] ?? ''));
         $action = $validated['action'] ?? null;
+        $type = $validated['type'] ?? null;
+        $page = (int) ($validated['page'] ?? 1);
 
-        $query = PhysicalFolderMovement::query()
-            ->with([
-                'physicalFolder:id,name,inventory_code,sector_id,location',
-                'physicalFolder.sector:id,name',
-                'creator:id,name',
-            ])
-            ->latest();
+        $rows = [];
 
-        if ($action) {
-            $query->where('action', $action);
-        }
+        if (!$type || $type === 'physical_folder') {
+            $q1 = PhysicalFolderMovement::query()
+                ->with([
+                    'physicalFolder:id,name,inventory_code,sector_id,location',
+                    'physicalFolder.sector:id,name',
+                    'creator:id,name',
+                ])
+                ->latest();
 
-        if ($q !== '') {
-            $query->where(function ($sub) use ($q) {
-                $sub->where('to_person', 'like', "%{$q}%")
-                    ->orWhere('notes', 'like', "%{$q}%")
-                    ->orWhereHas('creator', fn($u) => $u->where('name', 'like', "%{$q}%"))
-                    ->orWhereHas('physicalFolder', function ($f) use ($q) {
-                        $f->where('name', 'like', "%{$q}%")
-                          ->orWhere('inventory_code', 'like', "%{$q}%")
-                          ->orWhere('location', 'like', "%{$q}%");
-                    });
-            });
-        }
+            if ($action) $q1->where('action', $action);
+            if ($q !== '') {
+                $q1->where(function ($sub) use ($q) {
+                    $sub->where('to_person', 'like', "%{$q}%")
+                        ->orWhere('notes', 'like', "%{$q}%")
+                        ->orWhereHas('creator', fn($u) => $u->where('name', 'like', "%{$q}%"))
+                        ->orWhereHas('physicalFolder', function ($f) use ($q) {
+                            $f->where('name', 'like', "%{$q}%")
+                              ->orWhere('inventory_code', 'like', "%{$q}%")
+                              ->orWhere('location', 'like', "%{$q}%");
+                        });
+                });
+            }
 
-        $movements = $query->paginate($perPage)->through(function (PhysicalFolderMovement $m) {
-            return [
-                'id' => $m->id,
-                'action' => $m->action,
-                'to_person' => $m->to_person,
-                'notes' => $m->notes,
-                'created_at' => $m->created_at,
-                'created_by' => $m->creator ? ['id' => $m->creator->id, 'name' => $m->creator->name] : null,
-                'folder' => $m->physicalFolder ? [
-                    'id' => $m->physicalFolder->id,
-                    'name' => $m->physicalFolder->name,
-                    'inventory_code' => $m->physicalFolder->inventory_code,
-                    'location' => $m->physicalFolder->location,
-                    'sector' => $m->physicalFolder->sector ? [
-                        'id' => $m->physicalFolder->sector->id,
-                        'name' => $m->physicalFolder->sector->name,
+            foreach ($q1->limit(500)->get() as $m) {
+                $rows[] = [
+                    'id' => 'pfm:' . $m->id,
+                    'type' => 'physical_folder',
+                    'action' => $m->action,
+                    'to_person' => $m->to_person,
+                    'notes' => $m->notes,
+                    'created_at' => $m->created_at,
+                    'created_by' => $m->creator ? ['id' => $m->creator->id, 'name' => $m->creator->name] : null,
+                    'subject' => $m->physicalFolder ? [
+                        'id' => $m->physicalFolder->id,
+                        'name' => $m->physicalFolder->name,
+                        'code' => $m->physicalFolder->inventory_code,
+                        'location' => $m->physicalFolder->location,
+                        'sector' => $m->physicalFolder->sector ? ['id' => $m->physicalFolder->sector->id, 'name' => $m->physicalFolder->sector->name] : null,
                     ] : null,
-                ] : null,
-            ];
-        });
+                ];
+            }
+        }
 
-        return response()->json(['movements' => $movements], 200);
+        if (!$type || $type === 'document') {
+            $q2 = ArchiveDocumentMovement::query()
+                ->with([
+                    'document:id,title,serial_number,sector_id',
+                    'document.sector:id,name',
+                    'creator:id,name',
+                ])
+                ->latest();
+
+            if ($action) $q2->where('action', $action);
+            if ($q !== '') {
+                $q2->where(function ($sub) use ($q) {
+                    $sub->where('to_person', 'like', "%{$q}%")
+                        ->orWhere('notes', 'like', "%{$q}%")
+                        ->orWhereHas('creator', fn($u) => $u->where('name', 'like', "%{$q}%"))
+                        ->orWhereHas('document', function ($d) use ($q) {
+                            $d->where('title', 'like', "%{$q}%")
+                              ->orWhere('serial_number', 'like', "%{$q}%");
+                        });
+                });
+            }
+
+            foreach ($q2->limit(500)->get() as $m) {
+                $rows[] = [
+                    'id' => 'dm:' . $m->id,
+                    'type' => 'document',
+                    'action' => $m->action,
+                    'to_person' => $m->to_person,
+                    'notes' => $m->notes,
+                    'created_at' => $m->created_at,
+                    'created_by' => $m->creator ? ['id' => $m->creator->id, 'name' => $m->creator->name] : null,
+                    'subject' => $m->document ? [
+                        'id' => $m->document->id,
+                        'name' => $m->document->title,
+                        'code' => $m->document->serial_number,
+                        'location' => null,
+                        'sector' => $m->document->sector ? ['id' => $m->document->sector->id, 'name' => $m->document->sector->name] : null,
+                    ] : null,
+                ];
+            }
+        }
+
+        usort($rows, fn($a, $b) => strtotime((string)$b['created_at']) <=> strtotime((string)$a['created_at']));
+
+        $total = count($rows);
+        $lastPage = max(1, (int) ceil($total / max(1, $perPage)));
+        $page = min(max(1, $page), $lastPage);
+        $slice = array_slice($rows, ($page - 1) * $perPage, $perPage);
+
+        return response()->json([
+            'movements' => [
+                'data' => $slice,
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'total' => $total,
+                'per_page' => $perPage,
+            ],
+        ], 200);
     }
 
     public function audits(Request $request)

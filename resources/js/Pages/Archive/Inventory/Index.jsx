@@ -124,8 +124,8 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                 params: {
                     q: movementsQuery || undefined,
                     action: movementsAction || undefined,
-                    per_page: 50,
                     page,
+                    per_page: 50,
                 }
             });
             const p = res.data.movements;
@@ -812,7 +812,8 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                         <table className="min-w-full text-sm">
                             <thead className="bg-gray-50 text-gray-600">
                                 <tr>
-                                    <th className="text-right p-3 font-bold">الملف</th>
+                                    <th className="text-right p-3 font-bold">النوع</th>
+                                    <th className="text-right p-3 font-bold">العنصر</th>
                                     <th className="text-right p-3 font-bold">الكود</th>
                                     <th className="text-right p-3 font-bold">العملية</th>
                                     <th className="text-right p-3 font-bold">تم تسليمه إلى</th>
@@ -823,22 +824,29 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                             </thead>
                             <tbody>
                                 {movementsLoading ? (
-                                    <tr><td colSpan={7} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
+                                    <tr><td colSpan={8} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
                                 ) : movements.length === 0 ? (
-                                    <tr><td colSpan={7} className="p-8 text-center text-gray-400">لا يوجد سجل</td></tr>
+                                    <tr><td colSpan={8} className="p-8 text-center text-gray-400">لا يوجد سجل</td></tr>
                                 ) : (
                                     movements.map(m => (
                                         <tr key={m.id} className="border-t bg-white hover:bg-gray-50 transition-colors">
                                             <td className="p-3">
-                                                <div className="font-bold text-gray-800">{m.folder?.name ?? '—'}</div>
+                                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                                    m.type === 'document' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                    {m.type === 'document' ? 'مستند' : 'ملف ورقي'}
+                                                </span>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="font-bold text-gray-800">{m.subject?.name ?? '—'}</div>
                                                 <div className="text-xs text-gray-500 mt-1">
-                                                    {m.folder?.sector?.name ? `القطاع: ${m.folder.sector.name}` : ''}
-                                                    {m.folder?.location ? ` — موقع: ${m.folder.location}` : ''}
+                                                    {m.subject?.sector?.name ? `القطاع: ${m.subject.sector.name}` : ''}
+                                                    {m.subject?.location ? ` — موقع: ${m.subject.location}` : ''}
                                                 </div>
                                             </td>
                                             <td className="p-3">
                                                 <div className="font-mono text-xs bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 inline-block" dir="ltr">
-                                                    {m.folder?.inventory_code ?? '—'}
+                                                    {m.subject?.code ?? '—'}
                                                 </div>
                                             </td>
                                             <td className="p-3">

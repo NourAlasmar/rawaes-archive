@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessDocumentOcr;
 use App\Mail\DocumentEmailMail;
 use App\Models\ArchiveDocument;
+use App\Models\ArchiveDocumentMovement;
 use App\Models\AuditLog;
 use App\Models\DocumentFolder;
 use App\Models\DocumentType;
@@ -310,5 +311,72 @@ class DocumentController extends Controller
         );
 
         return back()->with('success', 'تم إرسال المستند بنجاح إلى ' . count($validated['recipients']) . ' مستلم');
+    }
+
+    public function custodyCheckout(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('update', $document);
+
+        $validated = $request->validate([
+            'to_person' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        if ($document->is_checked_out) {
+            return back()->with('error', 'المستند مُسلّم بالفعل');
+        }
+
+        $document->forceFill([
+            'is_checked_out' => true,
+            'checked_out_to' => $validated['to_person'],
+            'checked_out_by' => $request->user()?->id,
+            'checked_out_at' => now(),
+            'checked_out_notes' => $validated['notes'] ?? null,
+        ])->save();
+
+        ArchiveDocumentMovement::create([
+            'document_id' => $document->id,
+            'action' => 'checkout',
+            'to_person' => $validated['to_person'],
+            'notes' => $validated['notes'] ?? null,
+            'created_by' => $request->user()?->id,
+        ]);
+
+        AuditLog::record('document_custody_checkout', $document, [], [], "تسليم عهدة مستند: {$document->title}");
+
+        return back()->with('success', 'تم تسليم العهدة');
+    }
+
+    public function custodyCheckin(Request $request, ArchiveDocument $document)
+    {
+        $this->authorize('update', $document);
+
+        $validated = $request->validate([
+            'notes' => 'nullable|string',
+        ]);
+
+        if (!$document->is_checked_out) {
+            return back()->with('error', 'المستند غير مُسلّم حالياً');
+        }
+
+        ArchiveDocumentMovement::create([
+            'document_id' => $document->id,
+            'action' => 'checkin',
+            'to_person' => $document->checked_out_to,
+            'notes' => $validated['notes'] ?? null,
+            'created_by' => $request->user()?->id,
+        ]);
+
+        $document->forceFill([
+            'is_checked_out' => false,
+            'checked_out_to' => null,
+            'checked_out_by' => null,
+            'checked_out_at' => null,
+            'checked_out_notes' => $validated['notes'] ?? null,
+        ])->save();
+
+        AuditLog::record('document_custody_checkin', $document, [], [], "استلام عهدة مستند: {$document->title}");
+
+        return back()->with('success', 'تم استلام العهدة');
     }
 }
