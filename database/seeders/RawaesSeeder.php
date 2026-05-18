@@ -25,6 +25,7 @@ class RawaesSeeder extends Seeder
         $permissions = [
             'documents.view', 'documents.create', 'documents.edit',
             'documents.delete', 'documents.download', 'documents.print',
+            'documents.custody.checkout', 'documents.custody.checkin',
             'documents.trash.view', 'documents.restore', 'documents.force_delete',
             'folders.manage', 'sectors.manage', 'users.manage',
             'audit.view', 'reports.view',

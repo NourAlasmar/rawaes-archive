@@ -37,13 +37,22 @@ class AuditLogController extends Controller
         'scan_deleted'   => 'حذف مسح ضوئي',
         'document_restored' => 'استرجاع مستند',
         'document_force_deleted' => 'حذف نهائي لمستند',
+        'document_emailed' => 'إرسال المستند بالبريد',
+        'document_custody_checkout' => 'تسليم عهدة مستند',
+        'document_custody_checkin' => 'استلام عهدة مستند',
+        'inventory_checkout' => 'تسليم ملف ورقي (الجرد)',
+        'inventory_checkin' => 'استلام ملف ورقي (الجرد)',
+        'inventory_update_physical_folder' => 'تعديل ملف ورقي (الجرد)',
+        'inventory_delete_physical_folder' => 'حذف ملف ورقي (الجرد)',
+        'create_physical_folder' => 'إنشاء ملف ورقي (الجرد)',
+        'audit_export' => 'تصدير سجل التدقيق',
     ];
 
     private const TAB_ACTIONS = [
         // Incoming = documents entering the system
         'incoming' => ['upload', 'scan_received', 'scan_assigned', 'document_restored'],
         // Outgoing = actions that take documents out of the system
-        'outgoing' => ['download', 'document_emailed', 'documents.print', 'audit_export'],
+        'outgoing' => ['download', 'document_emailed', 'audit_export'],
     ];
 
     public function index(Request $request)

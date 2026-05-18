@@ -317,6 +317,7 @@ class DocumentController extends Controller
     public function custodyCheckout(Request $request, ArchiveDocument $document)
     {
         $this->authorize('update', $document);
+        abort_unless($request->user()?->can('documents.custody.checkout'), 403);
 
         $validated = $request->validate([
             'to_person' => 'required|string|max:255',
@@ -358,6 +359,7 @@ class DocumentController extends Controller
     public function custodyCheckin(Request $request, ArchiveDocument $document)
     {
         $this->authorize('update', $document);
+        abort_unless($request->user()?->can('documents.custody.checkin'), 403);
 
         $validated = $request->validate([
             'notes' => 'nullable|string',

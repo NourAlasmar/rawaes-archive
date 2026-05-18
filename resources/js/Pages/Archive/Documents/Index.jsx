@@ -35,6 +35,9 @@ function DocumentRow({ doc, can }) {
     const isDeleted = !!doc.deleted_at;
     const sourceLabel = doc.upload_source === 'scanner' ? 'ورقي' : 'إلكتروني';
     const isCheckedOut = !!doc.is_checked_out;
+    const canCheckout = !!can['documents.custody.checkout'];
+    const canCheckin = !!can['documents.custody.checkin'];
+    const canCustodyAction = isCheckedOut ? canCheckin : canCheckout;
 
     const submitCustody = () => {
         if (!isCheckedOut && !custodyTo.trim()) return;
@@ -126,7 +129,7 @@ function DocumentRow({ doc, can }) {
                     <td className="px-4 py-3 text-sm text-gray-500">{doc.uploader?.name ?? '—'}</td>
                     <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                            {can['documents.create'] && (
+                            {canCustodyAction && (
                                 <button
                                     onClick={() => {
                                         setCustodyOpen(true);
