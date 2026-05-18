@@ -24,6 +24,7 @@ const groupLabels = {
     'users': 'المستخدمون',
     'audit': 'سجل التدقيق',
     'reports': 'التقارير',
+    'inventory': 'الجرد',
 };
 
 const permissionLabels = {
@@ -33,6 +34,8 @@ const permissionLabels = {
     'documents.delete': 'حذف',
     'documents.download': 'تحميل',
     'documents.print': 'طباعة',
+    'documents.custody.checkout': 'تسليم عهدة',
+    'documents.custody.checkin': 'استلام عهدة',
     'documents.trash.view': 'عرض سلة المحذوفات',
     'documents.restore': 'استرجاع من سلة المحذوفات',
     'documents.force_delete': 'حذف نهائي من سلة المحذوفات',
@@ -41,6 +44,8 @@ const permissionLabels = {
     'users.manage': 'إدارة المستخدمين',
     'audit.view': 'عرض سجل التدقيق',
     'reports.view': 'عرض التقارير',
+    'inventory.view': 'عرض الجرد',
+    'inventory.manage': 'إدارة الجرد',
 };
 
 function RoleCard({ role, permissionGroups, isSystem }) {
