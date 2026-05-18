@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
+import SignaturePad from '@/Components/SignaturePad';
 import {
     Search, Filter, Download, Eye, Edit2, Trash2,
     FileText, AlertTriangle, Clock, CheckCircle,
@@ -26,6 +27,7 @@ function DocumentRow({ doc, can }) {
     const [custodyOpen, setCustodyOpen] = useState(false);
     const [custodyTo, setCustodyTo] = useState('');
     const [custodyNotes, setCustodyNotes] = useState('');
+    const [custodySignature, setCustodySignature] = useState('');
     const [custodyProcessing, setCustodyProcessing] = useState(false);
 
     const isExpired = doc.is_expired;
@@ -36,13 +38,14 @@ function DocumentRow({ doc, can }) {
 
     const submitCustody = () => {
         if (!isCheckedOut && !custodyTo.trim()) return;
+        if (!custodySignature) return;
         setCustodyProcessing(true);
         const url = isCheckedOut
             ? `/archive/documents/${doc.id}/custody/checkin`
             : `/archive/documents/${doc.id}/custody/checkout`;
         const payload = isCheckedOut
-            ? { notes: custodyNotes || null }
-            : { to_person: custodyTo, notes: custodyNotes || null };
+            ? { notes: custodyNotes || null, signature: custodySignature }
+            : { to_person: custodyTo, notes: custodyNotes || null, signature: custodySignature };
 
         router.post(url, payload, {
             preserveScroll: true,
@@ -51,6 +54,7 @@ function DocumentRow({ doc, can }) {
                 setCustodyOpen(false);
                 setCustodyTo('');
                 setCustodyNotes('');
+                setCustodySignature('');
             },
         });
     };
@@ -124,7 +128,12 @@ function DocumentRow({ doc, can }) {
                         <div className="flex items-center gap-1">
                             {can['documents.create'] && (
                                 <button
-                                    onClick={() => setCustodyOpen(true)}
+                                    onClick={() => {
+                                        setCustodyOpen(true);
+                                        setCustodyTo('');
+                                        setCustodyNotes('');
+                                        setCustodySignature('');
+                                    }}
                                     className={`p-1.5 rounded transition-colors ${
                                         isCheckedOut
                                             ? 'hover:bg-emerald-50 text-emerald-700'
@@ -210,9 +219,17 @@ function DocumentRow({ doc, can }) {
                                         />
                                     </div>
 
+                                    <div className="mt-3">
+                                        <SignaturePad
+                                            value={custodySignature}
+                                            onChange={setCustodySignature}
+                                            label={isCheckedOut ? 'توقيع المستلم عند الاستلام' : 'توقيع المستلم عند التسليم'}
+                                        />
+                                    </div>
+
                                     <button
                                         onClick={submitCustody}
-                                        disabled={custodyProcessing || (!isCheckedOut && !custodyTo.trim())}
+                                        disabled={custodyProcessing || (!isCheckedOut && !custodyTo.trim()) || !custodySignature}
                                         className={`mt-4 w-full inline-flex items-center justify-center gap-2 font-bold rounded-lg py-2.5 disabled:opacity-50 ${
                                             isCheckedOut ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
                                         }`}

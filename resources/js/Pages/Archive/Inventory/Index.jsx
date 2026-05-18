@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ArchiveLayout from '@/Layouts/ArchiveLayout';
+import SignaturePad from '@/Components/SignaturePad';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { BrowserQRCodeReader } from '@zxing/browser';
@@ -143,8 +144,8 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
     const [deleteModal, setDeleteModal] = useState({ open: false, folder: null });
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState(null);
-    const [checkoutForm, setCheckoutForm] = useState({ to_person: '', notes: '' });
-    const [checkinForm, setCheckinForm] = useState({ notes: '' });
+    const [checkoutForm, setCheckoutForm] = useState({ to_person: '', notes: '', signature: '' });
+    const [checkinForm, setCheckinForm] = useState({ notes: '', signature: '' });
     const [editForm, setEditForm] = useState({ sector_id: '', document_folder_id: '', name: '', description: '', location: '', is_active: true });
     const [stickerToPrint, setStickerToPrint] = useState(null); // { name, code }
 
@@ -402,13 +403,13 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
 
     const openCheckout = (folder) => {
         setActionError(null);
-        setCheckoutForm({ to_person: '', notes: '' });
+        setCheckoutForm({ to_person: '', notes: '', signature: '' });
         setCheckoutModal({ open: true, folder });
     };
 
     const openCheckin = (folder) => {
         setActionError(null);
-        setCheckinForm({ notes: '' });
+        setCheckinForm({ notes: '', signature: '' });
         setCheckinModal({ open: true, folder });
     };
 
@@ -888,14 +889,15 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                     <th className="text-right p-3 font-bold">تم تسليمه إلى</th>
                                     <th className="text-right p-3 font-bold">من قام</th>
                                     <th className="text-right p-3 font-bold">التاريخ</th>
+                                    <th className="text-right p-3 font-bold">التوقيع</th>
                                     <th className="text-right p-3 font-bold">ملاحظات</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {movementsLoading ? (
-                                    <tr><td colSpan={8} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
+                                    <tr><td colSpan={9} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
                                 ) : movements.length === 0 ? (
-                                    <tr><td colSpan={8} className="p-8 text-center text-gray-400">لا يوجد سجل</td></tr>
+                                    <tr><td colSpan={9} className="p-8 text-center text-gray-400">لا يوجد سجل</td></tr>
                                 ) : (
                                     movements.map(m => (
                                         <tr key={m.id} className="border-t bg-white hover:bg-gray-50 transition-colors">
@@ -928,6 +930,20 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                             <td className="p-3 text-gray-700">{m.to_person ?? '—'}</td>
                                             <td className="p-3 text-gray-700">{m.created_by?.name ?? '—'}</td>
                                             <td className="p-3 text-gray-700">{formatDate(m.created_at)}</td>
+                                            <td className="p-3">
+                                                {m.signature_url ? (
+                                                    <a
+                                                        href={m.signature_url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-xs font-bold text-blue-700 hover:underline"
+                                                    >
+                                                        عرض
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">—</span>
+                                                )}
+                                            </td>
                                             <td className="p-3 text-gray-600 text-xs max-w-[340px] truncate">{m.notes ?? '—'}</td>
                                         </tr>
                                     ))
@@ -1485,9 +1501,14 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                             placeholder="مثال: للاطلاع/مراجعة عقد..."
                         />
                     </div>
+                    <SignaturePad
+                        value={checkoutForm.signature}
+                        onChange={(sig) => setCheckoutForm(f => ({ ...f, signature: sig }))}
+                        label="توقيع المستلم عند التسليم"
+                    />
                     <button
                         onClick={submitCheckout}
-                        disabled={actionLoading || !checkoutForm.to_person.trim()}
+                        disabled={actionLoading || !checkoutForm.to_person.trim() || !checkoutForm.signature}
                         className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-lg py-2.5"
                     >
                         <Handshake size={16} />
@@ -1528,9 +1549,14 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                             placeholder="مثال: تم الاستلام بحالة جيدة..."
                         />
                     </div>
+                    <SignaturePad
+                        value={checkinForm.signature}
+                        onChange={(sig) => setCheckinForm(f => ({ ...f, signature: sig }))}
+                        label="توقيع المستلم عند الاستلام"
+                    />
                     <button
                         onClick={submitCheckin}
-                        disabled={actionLoading}
+                        disabled={actionLoading || !checkinForm.signature}
                         className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg py-2.5"
                     >
                         <Hand size={16} />

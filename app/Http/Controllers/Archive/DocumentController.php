@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -320,6 +321,7 @@ class DocumentController extends Controller
         $validated = $request->validate([
             'to_person' => 'required|string|max:255',
             'notes' => 'nullable|string',
+            'signature' => 'required|string',
         ]);
 
         if ($document->is_checked_out) {
@@ -334,11 +336,17 @@ class DocumentController extends Controller
             'checked_out_notes' => $validated['notes'] ?? null,
         ])->save();
 
+        $signaturePath = $this->storeSignatureDataUrl(
+            $validated['signature'],
+            'signatures/custody/documents/'.now()->format('Y/m')
+        );
+
         ArchiveDocumentMovement::create([
             'document_id' => $document->id,
             'action' => 'checkout',
             'to_person' => $validated['to_person'],
             'notes' => $validated['notes'] ?? null,
+            'signature_path' => $signaturePath,
             'created_by' => $request->user()?->id,
         ]);
 
@@ -353,17 +361,24 @@ class DocumentController extends Controller
 
         $validated = $request->validate([
             'notes' => 'nullable|string',
+            'signature' => 'required|string',
         ]);
 
         if (!$document->is_checked_out) {
             return back()->with('error', 'المستند غير مُسلّم حالياً');
         }
 
+        $signaturePath = $this->storeSignatureDataUrl(
+            $validated['signature'],
+            'signatures/custody/documents/'.now()->format('Y/m')
+        );
+
         ArchiveDocumentMovement::create([
             'document_id' => $document->id,
             'action' => 'checkin',
             'to_person' => $document->checked_out_to,
             'notes' => $validated['notes'] ?? null,
+            'signature_path' => $signaturePath,
             'created_by' => $request->user()?->id,
         ]);
 
@@ -378,5 +393,38 @@ class DocumentController extends Controller
         AuditLog::record('document_custody_checkin', $document, [], [], "استلام عهدة مستند: {$document->title}");
 
         return back()->with('success', 'تم استلام العهدة');
+    }
+
+    private function storeSignatureDataUrl(string $dataUrl, string $dir): string
+    {
+        $dataUrl = trim($dataUrl);
+        if (!str_starts_with($dataUrl, 'data:image/png;base64,')) {
+            throw ValidationException::withMessages([
+                'signature' => 'صيغة التوقيع غير صحيحة (PNG فقط).',
+            ]);
+        }
+
+        $base64 = substr($dataUrl, strlen('data:image/png;base64,'));
+        $binary = base64_decode($base64, true);
+
+        if ($binary === false) {
+            throw ValidationException::withMessages([
+                'signature' => 'تعذّر قراءة التوقيع.',
+            ]);
+        }
+
+        // prevent huge payloads (~1MB max)
+        if (strlen($binary) > 1024 * 1024) {
+            throw ValidationException::withMessages([
+                'signature' => 'حجم التوقيع كبير جداً.',
+            ]);
+        }
+
+        $filename = Str::uuid()->toString().'.png';
+        $path = rtrim($dir, '/').'/'.$filename;
+
+        Storage::disk('public')->put($path, $binary);
+
+        return $path;
     }
 }

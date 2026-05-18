@@ -12,6 +12,9 @@ use App\Models\PhysicalFolder;
 use App\Models\PhysicalFolderMovement;
 use App\Models\Sector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Inertia\Inertia;
 
@@ -263,6 +266,7 @@ class InventoryController extends Controller
         $validated = $request->validate([
             'to_person' => 'required|string|max:255',
             'notes' => 'nullable|string',
+            'signature' => 'required|string',
         ]);
 
         if ($folder->is_checked_out) {
@@ -277,11 +281,17 @@ class InventoryController extends Controller
             'checked_out_notes' => $validated['notes'] ?? null,
         ])->save();
 
+        $signaturePath = $this->storeSignatureDataUrl(
+            $validated['signature'],
+            'signatures/custody/physical-folders/'.now()->format('Y/m')
+        );
+
         PhysicalFolderMovement::create([
             'physical_folder_id' => $folder->id,
             'action' => 'checkout',
             'to_person' => $validated['to_person'],
             'notes' => $validated['notes'] ?? null,
+            'signature_path' => $signaturePath,
             'created_by' => $request->user()?->id,
         ]);
 
@@ -296,17 +306,24 @@ class InventoryController extends Controller
 
         $validated = $request->validate([
             'notes' => 'nullable|string',
+            'signature' => 'required|string',
         ]);
 
         if (!$folder->is_checked_out) {
             return response()->json(['message' => 'هذا المجلد غير مُسلّم حالياً'], 422);
         }
 
+        $signaturePath = $this->storeSignatureDataUrl(
+            $validated['signature'],
+            'signatures/custody/physical-folders/'.now()->format('Y/m')
+        );
+
         PhysicalFolderMovement::create([
             'physical_folder_id' => $folder->id,
             'action' => 'checkin',
             'to_person' => $folder->checked_out_to,
             'notes' => $validated['notes'] ?? null,
+            'signature_path' => $signaturePath,
             'created_by' => $request->user()?->id,
         ]);
 
@@ -321,6 +338,38 @@ class InventoryController extends Controller
         AuditLog::record('inventory_checkin', $folder, [], $folder->toArray(), "استلام مجلد (الجرد): {$folder->name}");
 
         return response()->json(['folder' => $folder->fresh()], 200);
+    }
+
+    private function storeSignatureDataUrl(string $dataUrl, string $dir): string
+    {
+        $dataUrl = trim($dataUrl);
+        if (!str_starts_with($dataUrl, 'data:image/png;base64,')) {
+            throw ValidationException::withMessages([
+                'signature' => 'صيغة التوقيع غير صحيحة (PNG فقط).',
+            ]);
+        }
+
+        $base64 = substr($dataUrl, strlen('data:image/png;base64,'));
+        $binary = base64_decode($base64, true);
+
+        if ($binary === false) {
+            throw ValidationException::withMessages([
+                'signature' => 'تعذّر قراءة التوقيع.',
+            ]);
+        }
+
+        if (strlen($binary) > 1024 * 1024) {
+            throw ValidationException::withMessages([
+                'signature' => 'حجم التوقيع كبير جداً.',
+            ]);
+        }
+
+        $filename = Str::uuid()->toString().'.png';
+        $path = rtrim($dir, '/').'/'.$filename;
+
+        Storage::disk('public')->put($path, $binary);
+
+        return $path;
     }
 
     public function movements(Request $request)
@@ -373,6 +422,7 @@ class InventoryController extends Controller
                     'action' => $m->action,
                     'to_person' => $m->to_person,
                     'notes' => $m->notes,
+                    'signature_url' => $m->signature_path ? Storage::disk('public')->url($m->signature_path) : null,
                     'created_at' => $m->created_at,
                     'created_by' => $m->creator ? ['id' => $m->creator->id, 'name' => $m->creator->name] : null,
                     'subject' => $m->physicalFolder ? [
@@ -415,6 +465,7 @@ class InventoryController extends Controller
                     'action' => $m->action,
                     'to_person' => $m->to_person,
                     'notes' => $m->notes,
+                    'signature_url' => $m->signature_path ? Storage::disk('public')->url($m->signature_path) : null,
                     'created_at' => $m->created_at,
                     'created_by' => $m->creator ? ['id' => $m->creator->id, 'name' => $m->creator->name] : null,
                     'subject' => $m->document ? [

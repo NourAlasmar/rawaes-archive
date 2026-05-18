@@ -12,6 +12,7 @@ class ArchiveDocumentMovement extends Model
         'action',
         'to_person',
         'notes',
+        'signature_path',
         'created_by',
     ];
 
@@ -25,4 +26,3 @@ class ArchiveDocumentMovement extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 }
-
