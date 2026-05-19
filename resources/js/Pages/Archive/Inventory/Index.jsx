@@ -827,7 +827,14 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                                         {i.status === 'found' ? (
                                                             <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">تم العثور</span>
                                                         ) : i.status === 'missing' ? (
-                                                            <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">مفقود</span>
+                                                            <div className="space-y-1">
+                                                                <span className="inline-flex text-xs font-bold text-red-700 bg-red-100 px-2 py-1 rounded-full">مفقود</span>
+                                                                {i.folder?.is_checked_out && i.folder?.checked_out_to ? (
+                                                                    <div className="text-[11px] font-bold text-red-700">
+                                                                        مسلّمة عهدة لـ: {i.folder.checked_out_to}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
                                                         ) : (
                                                             <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">بانتظار</span>
                                                         )}

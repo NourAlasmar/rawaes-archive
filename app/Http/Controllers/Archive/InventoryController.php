@@ -721,7 +721,7 @@ class InventoryController extends Controller
 
         $query = InventoryAuditItem::query()
             ->where('audit_id', $audit->id)
-            ->with(['physicalFolder:id,name,inventory_code,location,sector_id', 'physicalFolder.sector:id,name', 'scanner:id,name'])
+            ->with(['physicalFolder:id,name,inventory_code,location,sector_id,is_checked_out,checked_out_to', 'physicalFolder.sector:id,name', 'scanner:id,name'])
             ->orderBy('id');
 
         if (!empty($validated['status'])) $query->where('status', $validated['status']);
@@ -747,6 +747,8 @@ class InventoryController extends Controller
                     'name' => $i->physicalFolder->name,
                     'inventory_code' => $i->physicalFolder->inventory_code,
                     'location' => $i->physicalFolder->location,
+                    'is_checked_out' => (bool) $i->physicalFolder->is_checked_out,
+                    'checked_out_to' => $i->physicalFolder->checked_out_to,
                     'sector' => $i->physicalFolder->sector ? ['id' => $i->physicalFolder->sector->id, 'name' => $i->physicalFolder->sector->name] : null,
                 ] : null,
             ];
