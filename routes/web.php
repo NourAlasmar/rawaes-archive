@@ -95,6 +95,7 @@ Route::prefix('archive')->name('archive.')->middleware(['auth'])->group(function
     Route::post('/api/inventory/audits/{audit}/finish', [InventoryController::class, 'auditFinish'])->name('inventory.audits.finish');
     Route::post('/api/inventory/audits/{audit}/scan', [InventoryController::class, 'auditScan'])->name('inventory.audits.scan');
     Route::get('/api/inventory/audits/{audit}/items', [InventoryController::class, 'auditItems'])->name('inventory.audits.items');
+    Route::post('/api/inventory/audits/{audit}/items/{item}/status', [InventoryController::class, 'auditItemSetStatus'])->name('inventory.audits.items.status');
     Route::get('/api/inventory/audits/{audit}/report.csv', [InventoryController::class, 'auditReportCsv'])->name('inventory.audits.report_csv');
 
     Route::resource('sectors', SectorController::class);

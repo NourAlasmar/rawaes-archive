@@ -755,6 +755,48 @@ class InventoryController extends Controller
         return response()->json(['items' => $items], 200);
     }
 
+    public function auditItemSetStatus(Request $request, InventoryAudit $audit, InventoryAuditItem $item)
+    {
+        abort_unless($request->user()?->can('inventory.manage'), 403);
+
+        if ((int) $item->audit_id !== (int) $audit->id) {
+            return response()->json(['message' => 'العنصر لا يتبع هذا الجرد'], 422);
+        }
+
+        if ($audit->status === 'completed') {
+            return response()->json(['message' => 'لا يمكن تعديل عناصر جرد منتهي'], 422);
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|in:found,missing',
+            'notes' => 'nullable|string',
+        ]);
+
+        $item->update([
+            'status' => $validated['status'],
+            'scanned_by' => $request->user()?->id,
+            'scanned_at' => now(),
+            'notes' => array_key_exists('notes', $validated) ? ($validated['notes'] ?: null) : $item->notes,
+        ]);
+
+        AuditLog::record(
+            $validated['status'] === 'found' ? 'inventory_audit_item_found' : 'inventory_audit_item_missing',
+            $audit,
+            [],
+            $item->toArray(),
+            ($validated['status'] === 'found' ? 'تحديد عنصر جرد كموجود' : 'تحديد عنصر جرد كمفقود') . " (جرد #{$audit->id})"
+        );
+
+        return response()->json([
+            'ok' => true,
+            'item' => [
+                'id' => $item->id,
+                'status' => $item->status,
+                'scanned_at' => $item->scanned_at,
+            ],
+        ], 200);
+    }
+
     public function auditReportCsv(Request $request, InventoryAudit $audit): StreamedResponse
     {
         abort_unless($request->user()?->can('inventory.view'), 403);

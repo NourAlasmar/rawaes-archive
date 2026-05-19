@@ -210,7 +210,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
     const [auditItems, setAuditItems] = useState([]);
     const [auditItemsMeta, setAuditItemsMeta] = useState({ current_page: 1, last_page: 1, total: 0, per_page: 50 });
     const [auditItemsLoading, setAuditItemsLoading] = useState(false);
-    const [auditItemsStatus, setAuditItemsStatus] = useState('pending');
+    const [auditItemsStatus, setAuditItemsStatus] = useState(''); // ''=all
     const [auditItemsQuery, setAuditItemsQuery] = useState('');
 
     const loadAudits = async () => {
@@ -279,7 +279,7 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
             setStartAuditForm({ title: '', notes: '', include_inactive: false });
             await loadAudits();
             await loadAudit(res.data.audit.id);
-            setAuditItemsStatus('pending');
+            setAuditItemsStatus('');
         } catch (e) {
             setAuditActionError(e?.response?.data?.message ?? 'فشل بدء الجرد');
         } finally {
@@ -322,6 +322,18 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
             await loadAuditItems(1);
         } catch (e) {
             setAuditActionError(e?.response?.data?.message ?? 'فشل المسح');
+        }
+    };
+
+    const setAuditItemStatus = async (itemId, status) => {
+        if (!activeAudit?.id) return;
+        setAuditActionError(null);
+        try {
+            await axios.post(`/archive/api/inventory/audits/${activeAudit.id}/items/${itemId}/status`, { status });
+            await loadAudit(activeAudit.id);
+            await loadAuditItems(auditItemsMeta.current_page || 1);
+        } catch (e) {
+            setAuditActionError(e?.response?.data?.message ?? 'فشل تحديث الحالة');
         }
     };
 
@@ -732,15 +744,27 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1.5">فلترة عناصر الجرد</label>
-                                        <select
-                                            value={auditItemsStatus}
-                                            onChange={(e) => setAuditItemsStatus(e.target.value)}
-                                            className="w-full rounded-lg border-gray-200 focus:border-emerald-500 focus:ring-emerald-500 mb-2"
-                                        >
-                                            <option value="pending">بانتظار</option>
-                                            <option value="found">تم العثور</option>
-                                            <option value="missing">مفقود</option>
-                                        </select>
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {[
+                                                { key: '', label: `الكل (${auditSummary?.total ?? '—'})` },
+                                                { key: 'pending', label: `بانتظار (${auditSummary?.pending ?? '—'})` },
+                                                { key: 'found', label: `تم العثور (${auditSummary?.found ?? '—'})` },
+                                                { key: 'missing', label: `مفقود (${auditSummary?.missing ?? '—'})` },
+                                            ].map(t => (
+                                                <button
+                                                    key={t.key || 'all'}
+                                                    type="button"
+                                                    onClick={() => setAuditItemsStatus(t.key)}
+                                                    className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors ${
+                                                        auditItemsStatus === t.key
+                                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                                                    }`}
+                                                >
+                                                    {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                         <input
                                             value={auditItemsQuery}
                                             onChange={(e) => setAuditItemsQuery(e.target.value)}
@@ -779,13 +803,14 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                                 <th className="text-right p-3 font-bold">آخر مسح</th>
                                                 <th className="text-right p-3 font-bold">المستخدم</th>
                                                 <th className="text-right p-3 font-bold">ملاحظات</th>
+                                                <th className="text-right p-3 font-bold">إجراءات</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {auditItemsLoading ? (
-                                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
+                                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">جاري التحميل...</td></tr>
                                             ) : auditItems.length === 0 ? (
-                                                <tr><td colSpan={7} className="p-8 text-center text-gray-400">لا يوجد عناصر</td></tr>
+                                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">لا يوجد عناصر</td></tr>
                                             ) : auditItems.map(i => (
                                                 <tr key={i.id} className="border-t bg-white hover:bg-gray-50">
                                                     <td className="p-3">
@@ -810,6 +835,30 @@ export default function InventoryIndex({ sectors, physicalFolders, documentFolde
                                                     <td className="p-3 text-gray-700">{formatDate(i.scanned_at)}</td>
                                                     <td className="p-3 text-gray-700">{i.scanner?.name ?? '—'}</td>
                                                     <td className="p-3 text-gray-600 text-xs max-w-[320px] truncate">{i.notes ?? '—'}</td>
+                                                    <td className="p-3">
+                                                        {canManage && activeAudit.status !== 'completed' ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAuditItemStatus(i.id, 'found')}
+                                                                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-emerald-200 text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"
+                                                                    disabled={auditItemsLoading || i.status === 'found'}
+                                                                >
+                                                                    موجود
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAuditItemStatus(i.id, 'missing')}
+                                                                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                                                    disabled={auditItemsLoading || i.status === 'missing'}
+                                                                >
+                                                                    مفقود
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">—</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
