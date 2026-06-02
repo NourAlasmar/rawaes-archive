@@ -4,7 +4,7 @@ import {
     FileText, Clock, AlertTriangle, Lock, Upload,
     Archive, FolderOpen, Settings, Users,
     TrendingUp, Activity, Eye, Download, Edit2, Trash2,
-    Sparkles, Calendar, ArrowLeft, Bell, Plus
+    Sparkles, Calendar, ArrowLeft, Bell, Plus, Handshake
 } from 'lucide-react';
 
 function BarChart({ data, color = 'bg-amber-500' }) {
@@ -43,7 +43,54 @@ const actionIcons = {
 // ─────────────────────────────────────────────────────────
 // EMPLOYEE DASHBOARD
 // ─────────────────────────────────────────────────────────
-function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSectors, currentUser }) {
+function CheckedOutPanel({ checkedOutList = [], title = 'المستندات التي لم يتم إرجاعها' }) {
+    return (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                    <Handshake size={18} className="text-red-500" />
+                    {title}
+                </h3>
+                <span className="text-xs text-gray-400">{checkedOutList.length} مستند</span>
+            </div>
+            {checkedOutList.length > 0 ? (
+                <div className="space-y-2">
+                    {checkedOutList.map(doc => (
+                        <Link
+                            key={doc.id}
+                            href={`/archive/documents/${doc.id}`}
+                            className="block p-3 rounded-xl border border-red-100 bg-red-50/40 hover:border-red-200 transition-colors"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-800 truncate">{doc.title}</p>
+                                    <p className="text-xs text-red-700 mt-1">
+                                        مسلّم إلى: {doc.checked_out_to ?? 'غير محدد'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {doc.sector?.name ?? '—'} · {doc.document_type?.name ?? '—'}
+                                    </p>
+                                </div>
+                                <div className="shrink-0 text-left">
+                                    <p className="text-xs text-gray-400">
+                                        {doc.checked_out_at ? new Date(doc.checked_out_at).toLocaleString('en-GB') : '—'}
+                                    </p>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            ) : (
+                <div className="py-8 text-center">
+                    <Handshake size={28} className="mx-auto text-gray-200 mb-2" />
+                    <p className="text-xs text-gray-400">لا توجد مستندات بعهدة حالياً</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function EmployeeDashboard({ stats, byType, recent, expiringList, checkedOutList, accessibleSectors, currentUser }) {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء الخير';
 
@@ -254,6 +301,8 @@ function EmployeeDashboard({ stats, byType, recent, expiringList, accessibleSect
                         )}
                     </div>
 
+                    <CheckedOutPanel checkedOutList={checkedOutList} />
+
                     {/* Quick links */}
                     <div className="bg-white rounded-2xl border border-gray-100 p-5">
                         <h3 className="font-bold text-gray-800 mb-3 text-sm">روابط سريعة</h3>
@@ -311,7 +360,7 @@ function StatCard({ icon: Icon, label, value, color, accent, href, sub }) {
     return href ? <Link href={href}>{content}</Link> : content;
 }
 
-function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, recentActivity, currentUser }) {
+function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, checkedOutList, recentActivity, currentUser }) {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'صباح الخير' : hour < 18 ? 'مساء الخير' : 'مساء الخير';
     const todayCount = trend?.length > 0 ? (trend[trend.length - 1]?.count ?? 0) : 0;
@@ -386,6 +435,18 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                     accent="bg-purple-50"
                 />
             </div>
+
+            {stats.checked_out > 0 && (
+                <div className="mb-6">
+                    <StatCard
+                        icon={Handshake}
+                        label="مستندات لم تُرجع بعد"
+                        value={stats.checked_out}
+                        color="text-red-600"
+                        accent="bg-red-50"
+                    />
+                </div>
+            )}
 
             {/* Quick Resources Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -511,6 +572,10 @@ function AdminDashboard({ stats, bySector, byType, trend, recent, expiringList, 
                         )}
                     </div>
                 </div>
+            </div>
+
+            <div className="mb-5">
+                <CheckedOutPanel checkedOutList={checkedOutList} />
             </div>
 
             {/* Activity log */}

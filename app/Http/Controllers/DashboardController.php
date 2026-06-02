@@ -38,6 +38,7 @@ class DashboardController extends Controller
         $expiringSoon = $base()->expiringSoon(30)->count();
         $expired      = $base()->expired()->count();
         $confidential = $base()->where('is_confidential', true)->count();
+        $checkedOutCount = $base()->where('is_checked_out', true)->count();
         $totalSize    = (int) $base()->sum('file_size');
 
         // By sector (only show all sectors for users with full access)
@@ -77,6 +78,13 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
+        $checkedOutList = $base()
+            ->where('is_checked_out', true)
+            ->with(['sector:id,name', 'documentType:id,name', 'uploader:id,name'])
+            ->orderByDesc('checked_out_at')
+            ->take(6)
+            ->get();
+
         // Activity log: full access only
         $recentActivity = $hasFullAccess
             ? AuditLog::with('user:id,name')->latest('created_at')->take(8)->get()
@@ -104,6 +112,7 @@ class DashboardController extends Controller
                 'expiring_soon'      => $expiringSoon,
                 'expired'            => $expired,
                 'confidential'       => $confidential,
+                'checked_out'        => $checkedOutCount,
                 'sectors'            => $hasFullAccess ? Sector::count() : $accessibleSectors->count(),
                 'folders'            => DocumentFolder::when($sectorId, fn($q) => $q->where('sector_id', $sectorId))->count(),
                 'types'              => DocumentType::count(),
@@ -116,6 +125,7 @@ class DashboardController extends Controller
             'trend'            => $trend,
             'recent'           => $recent,
             'expiringList'     => $expiringList,
+            'checkedOutList'   => $checkedOutList,
             'recentActivity'   => $recentActivity,
             'isScoped'         => !$hasFullAccess,
             'sectorName'       => $sectorId ? $user->sector?->name : null,
