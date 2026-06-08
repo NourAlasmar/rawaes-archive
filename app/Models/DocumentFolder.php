@@ -56,6 +56,11 @@ class DocumentFolder extends Model
         return $this->hasMany(DocumentFolder::class, 'parent_id')->orderBy('sort_order');
     }
 
+    public function childrenRecursive(): HasMany
+    {
+        return $this->children()->with('childrenRecursive');
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(ArchiveDocument::class, 'folder_id');

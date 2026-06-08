@@ -16,7 +16,7 @@ class FolderController extends Controller
     {
         $sectors = Sector::with(['folders' => function ($q) {
             $q->whereNull('parent_id')
-              ->with('children.children')
+              ->with('childrenRecursive')
               ->orderBy('sort_order');
         }])->where('is_active', true)->get();
 
@@ -77,7 +77,7 @@ class FolderController extends Controller
     {
         $sectors = Sector::with(['folders' => function ($q) {
             $q->whereNull('parent_id')
-              ->with('children.children')
+              ->with('childrenRecursive')
               ->orderBy('sort_order');
         }])->where('is_active', true)->get();
 
